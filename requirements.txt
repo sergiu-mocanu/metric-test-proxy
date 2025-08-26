@@ -1,0 +1,14 @@
+pandas
+evaluate
+datasets>=3.6.0
+rouge-score
+sacrebleu
+codebleu
+tree-sitter-python==0.21
+crystalbleu
+numpy
+matplotlib
+seaborn
+scikit-learn
+nltk==3.9.1
+notebook
