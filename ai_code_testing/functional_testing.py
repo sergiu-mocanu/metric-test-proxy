@@ -11,6 +11,7 @@ def custom_sort_key(s):
     # A sorting key used to sort strings in a length-lexicographic order (length and alphabetical order)
     return len(s), s
 
+
 def extract_checker(script):
     # Function that extracts the test component of HumanEval implementations
 

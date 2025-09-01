@@ -204,16 +204,53 @@ def divide_by(input_dict, value):
     input_dict['weighted avg']['f1-score'] /= value
 
 
-def measure_average_variance(dataset_name, classifier_name):
-    # Function that measures the average and variance values of the 100 logreg-iteration results
-    iteration_results_folder = gp.get_classification_results_path(dataset_name, classifier_name, iterations=True)
-
+def avg_var(logreg_res):
     classification_metrics_template = {'precision': 0.0, 'recall': 0.0, 'f1-score': 0.0, 'support': 0}
     global_template = {'pass': copy.deepcopy(classification_metrics_template),
                        'fail': copy.deepcopy(classification_metrics_template),
                        'accuracy': 0.0,
                        'macro avg': copy.deepcopy(classification_metrics_template),
                        'weighted avg': copy.deepcopy(classification_metrics_template)}
+
+    avg_var_dict = {
+        'average': copy.deepcopy(global_template),
+        'variance': copy.deepcopy(global_template)}
+
+    prediction_metrics = ['precision', 'recall', 'f1-score', 'support']
+    prediction_labels = ['pass', 'fail', 'macro avg', 'weighted avg']
+    iterations_counter = 0
+
+    for iteration in list(logreg_res.keys()):
+        iterations_counter += 1
+
+        for pred_metric in prediction_metrics:
+            for label in prediction_labels:
+                avg_var_dict['average'][label][pred_metric] += logreg_res[iteration][label][pred_metric]
+
+        avg_var_dict['average']['accuracy'] += logreg_res[iteration]['accuracy']
+
+    divide_by(avg_var_dict['average'], iterations_counter)
+
+    for iteration in list(logreg_res.keys()):
+        for pred_metric in prediction_metrics[:-1]:
+            for label in prediction_labels:
+
+                avg_var_dict['variance'][label][pred_metric] += abs(
+                    avg_var_dict['average'][label][pred_metric] - logreg_res[iteration][label][pred_metric])
+
+                avg_var_dict['variance'][label]['support'] = avg_var_dict['average'][label]['support']
+
+        avg_var_dict['variance']['accuracy'] += abs(
+            avg_var_dict['average']['accuracy'] - logreg_res[iteration]['accuracy'])
+
+    divide_by(avg_var_dict['variance'], iterations_counter)
+
+    return avg_var_dict
+
+
+def measure_average_variance(dataset_name, classifier_name):
+    # Function that measures the average and variance values of the 100 logreg-iteration results
+    iteration_results_folder = gp.get_classification_results_path(dataset_name, classifier_name, iterations=True)
 
     for file_name in sorted(os.listdir(iteration_results_folder)):
         if file_name.endswith(precision_recall_file_name):
@@ -228,90 +265,7 @@ def measure_average_variance(dataset_name, classifier_name):
             parent_folder = Path(iteration_results_folder).parent
             avg_var_file_path = os.path.join(parent_folder, current_avg_var_name)
 
-            avg_var_dict = {
-                'average': copy.deepcopy(global_template),
-                'variance': copy.deepcopy(global_template)}
-
-            nb_iterations = 0
-            for iteration in list(logreg_dict.keys()):
-                nb_iterations += 1
-
-                avg_var_dict['average']['pass']['precision'] += logreg_dict[iteration]['pass']['precision']
-                avg_var_dict['average']['pass']['recall'] += logreg_dict[iteration]['pass']['recall']
-                avg_var_dict['average']['pass']['f1-score'] += logreg_dict[iteration]['pass']['f1-score']
-                avg_var_dict['average']['pass']['support'] += logreg_dict[iteration]['pass']['support']
-
-                avg_var_dict['average']['fail']['precision'] += logreg_dict[iteration]['fail']['precision']
-                avg_var_dict['average']['fail']['recall'] += logreg_dict[iteration]['fail']['recall']
-                avg_var_dict['average']['fail']['f1-score'] += logreg_dict[iteration]['fail']['f1-score']
-                avg_var_dict['average']['fail']['support'] += logreg_dict[iteration]['fail']['support']
-
-                avg_var_dict['average']['accuracy'] += logreg_dict[iteration]['accuracy']
-
-                avg_var_dict['average']['macro avg']['precision'] += logreg_dict[iteration]['macro avg']['precision']
-                avg_var_dict['average']['macro avg']['recall'] += logreg_dict[iteration]['macro avg']['recall']
-                avg_var_dict['average']['macro avg']['f1-score'] += logreg_dict[iteration]['macro avg']['f1-score']
-                avg_var_dict['average']['macro avg']['support'] += logreg_dict[iteration]['macro avg']['support']
-
-                avg_var_dict['average']['weighted avg']['precision'] += (
-                    logreg_dict)[iteration]['weighted avg']['precision']
-                avg_var_dict['average']['weighted avg']['recall'] += (
-                    logreg_dict)[iteration]['weighted avg']['recall']
-                avg_var_dict['average']['weighted avg']['f1-score'] += (
-                    logreg_dict)[iteration]['weighted avg']['f1-score']
-                avg_var_dict['average']['weighted avg']['support'] += (
-                    logreg_dict)[iteration]['weighted avg']['support']
-
-
-            divide_by(avg_var_dict['average'], nb_iterations)
-
-            for iteration in list(logreg_dict.keys()):
-                avg_var_dict['variance']['pass']['precision'] += abs(avg_var_dict['average']['pass']['precision'] -
-                                                                       logreg_dict[iteration]['pass']['precision'])
-                avg_var_dict['variance']['pass']['recall'] += abs(avg_var_dict['average']['pass']['recall'] -
-                                                                    logreg_dict[iteration]['pass']['recall'])
-                avg_var_dict['variance']['pass']['f1-score'] += abs(avg_var_dict['average']['pass']['f1-score'] -
-                                                                      logreg_dict[iteration]['pass']['f1-score'])
-                avg_var_dict['variance']['pass']['support'] = avg_var_dict['average']['pass']['support']
-
-                avg_var_dict['variance']['fail']['precision'] += abs(
-                    avg_var_dict['average']['fail']['precision'] -
-                    logreg_dict[iteration]['fail']['precision'])
-                avg_var_dict['variance']['fail']['recall'] += abs(
-                    avg_var_dict['average']['fail']['recall'] -
-                    logreg_dict[iteration]['fail']['recall'])
-                avg_var_dict['variance']['fail']['f1-score'] += abs(
-                    avg_var_dict['average']['fail']['f1-score'] -
-                    logreg_dict[iteration]['fail']['f1-score'])
-                avg_var_dict['variance']['fail']['support'] = avg_var_dict['average']['fail']['support']
-
-                avg_var_dict['variance']['accuracy'] += abs(avg_var_dict ['average']['accuracy'] -
-                                                              logreg_dict[iteration]['accuracy'])
-
-                avg_var_dict['variance']['macro avg']['precision'] += abs(
-                    avg_var_dict['average']['macro avg']['precision'] -
-                    logreg_dict[iteration]['macro avg']['precision'])
-                avg_var_dict['variance']['macro avg']['recall'] += abs(
-                    avg_var_dict['average']['macro avg']['recall'] -
-                    logreg_dict[iteration]['macro avg']['recall'])
-                avg_var_dict['variance']['macro avg']['f1-score'] += abs(
-                    avg_var_dict['average']['macro avg']['f1-score'] -
-                    logreg_dict[iteration]['macro avg']['f1-score'])
-                avg_var_dict['variance']['macro avg']['support'] = avg_var_dict['average']['macro avg']['support']
-
-                avg_var_dict['variance']['weighted avg']['precision'] += abs(
-                    avg_var_dict['average']['weighted avg']['precision'] -
-                    logreg_dict[iteration]['weighted avg']['precision'])
-                avg_var_dict['variance']['weighted avg']['recall'] += abs(
-                    avg_var_dict['average']['weighted avg']['recall'] -
-                    logreg_dict[iteration]['weighted avg']['recall'])
-                avg_var_dict['variance']['weighted avg']['f1-score'] += abs(
-                    avg_var_dict['average']['weighted avg']['f1-score'] -
-                    logreg_dict[iteration]['weighted avg']['f1-score'])
-                avg_var_dict['variance']['weighted avg']['support'] = (
-                    avg_var_dict)['average']['weighted avg']['support']
-
-            divide_by(avg_var_dict['variance'], nb_iterations)
+            avg_var_dict = avg_var(logreg_dict)
 
             with open(avg_var_file_path, 'w') as f:
                 json.dump(avg_var_dict, f)
