@@ -69,16 +69,6 @@ def metric_name_to_title(metric_name):
     return title
 
 
-def get_metric_combinations():
-    metric_combinations = []
-
-    for i in range(2, len(metric_names) + 1):
-        metric_combo = list(itertools.combinations(metric_names, i))
-        metric_combinations.extend(metric_combo)
-
-    return metric_combinations
-
-
 def prepare_x_y(dataset_name, list_metrics):
     """
     Function that runs logistic regression over the LLM-generated script results (i.e., establish if a correlation
