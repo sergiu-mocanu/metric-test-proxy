@@ -1,7 +1,6 @@
 import os
 import signal
 import json
-import logging
 import subprocess
 import sys
 
@@ -61,25 +60,6 @@ def extract_shared_ngrams(corpus):
     return shared_ngrams
 
 #######################################################
-
-
-def start_logger(logger_name):
-    logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.DEBUG)
-
-    log_file = f'{logger_name}.log'
-    file_handler = logging.FileHandler(log_file, mode='a')
-
-    log_format = '%(message)s'
-    formatter = logging.Formatter(log_format)
-
-    file_handler.setFormatter(formatter)
-
-    logger.addHandler(file_handler)
-
-    return logger
-
-
 # noinspection PyUnusedLocal
 def timeout_handler(signum, frame):
     # Custom TimeOut exception used in 'test_functionality()' function
