@@ -318,12 +318,12 @@ def test_impl_functionality(dataset_name):
                 if not test_file_write_counter:
                     test_file_write_counter = 50
                     with open(test_file_path, 'w') as f:
-                        json.dump(dict_test, f) # type: ignore
+                        json.dump(dict_test, f)
 
             dict_test['test_complete'] = True
 
             with open(test_file_path, 'w') as f:
-                json.dump(dict_test, f) # type: ignore
+                json.dump(dict_test, f)
 
             # Experiment resumption mechanism (i.e., reinitializing the starting index after re-launching the exp)
             if test_file_exists and not exp_continuation_started:
