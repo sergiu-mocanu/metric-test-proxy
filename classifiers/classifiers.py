@@ -146,9 +146,9 @@ def save_classification_results(classification_results_dict, test_pred_dict, res
     test_pred_file_path = os.path.join(results_folder_path, current_t_p_name)
 
     with open(precision_recall_file_path, 'w') as f:
-        json.dump(classification_results_dict, f) # type: ignore
+        json.dump(classification_results_dict, f)
     with open(test_pred_file_path, 'w') as f:
-        json.dump(test_pred_dict, f) # type: ignore
+        json.dump(test_pred_dict, f)
 
 
 def compute_logistic_regression(dataset_name, nb_iterations):
@@ -324,7 +324,7 @@ def measure_average_variance(dataset_name, classifier_name):
             divide_by(avg_var_dict['variance'], nb_iterations)
 
             with open(avg_var_file_path, 'w') as f:
-                json.dump(avg_var_dict, f) # type: ignore
+                json.dump(avg_var_dict, f)
 
 
 def format_logreg_results(logreg_dict):
