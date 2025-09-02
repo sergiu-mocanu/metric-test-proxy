@@ -17,20 +17,19 @@ with contextlib.redirect_stderr(stderr):
     # Supress warning about missing installation of a deeplearning framework
     import evaluate as ev
 
-
 import re
 from collections import Counter
 from nltk.util import ngrams
 from crystalbleu import corpus_bleu
 
 
-class Metric(Enum):
-    bleu = 0
-    codebleu = 1
-    rouge = 2
-    meteor = 3
-    chrf = 4
-    crystalbleu = 5
+class TextMetric(str, Enum):
+    BL = 'bleu'
+    CB = 'codebleu'
+    RG = 'rouge'
+    MT = 'meteor'
+    CH = 'chrf'
+    CR = 'crystalbleu'
 
 
 ##################### CrystalBLEU #####################
@@ -154,6 +153,7 @@ def list_non_hidden_files(dir_path):
     return [f for f in os.listdir(dir_path) if not f.startswith('.')]
 
 
+# TODO: update the docstring with the new `metric` datatype
 def calculate_metric(metric, baseline, generated_script, metric_calc=None, shared_ngrams=None):
     """
     Function that measures the LLM-script score of a given metric against the HumanEval implementation
@@ -165,12 +165,10 @@ def calculate_metric(metric, baseline, generated_script, metric_calc=None, share
     :param shared_ngrams: dictionary of most common ngrams used for CrystalBLEU score measurement
     :return: metric score
     """
-    metric_name = Metric(metric).name
-
     score = {}
 
     if not generated_script:
-        if metric != 1:
+        if metric != TextMetric.CB.value:
             return 0
         else:
             return {"codebleu": 0.0,
@@ -179,7 +177,7 @@ def calculate_metric(metric, baseline, generated_script, metric_calc=None, share
                     "syntax_match_score": 0.0,
                     "dataflow_match_score": 0.0}
 
-    if metric == 1:
+    if metric == TextMetric.CB.value:
         metric_complete = False
         signal.alarm(2)
         while not metric_complete:
@@ -192,9 +190,9 @@ def calculate_metric(metric, baseline, generated_script, metric_calc=None, share
                 signal.alarm(2)
 
     else:
-        if metric == 2:
+        if metric == TextMetric.RG.value:
             results = metric_calc.compute(predictions=[generated_script], references=[baseline], rouge_types=['rougeL'])
-        elif metric == 5:
+        elif metric == TextMetric.CR.value:
             tokenized_baseline = tokenize(baseline)
             tokenized_generated_script = tokenize(generated_script)
             results = corpus_bleu([[tokenized_baseline]], [tokenized_generated_script],
@@ -202,16 +200,16 @@ def calculate_metric(metric, baseline, generated_script, metric_calc=None, share
         else:
             results = metric_calc.compute(predictions=[generated_script], references=[baseline])
 
-        if metric == 2:
+        if metric == TextMetric.RG.value:
             score = results['rougeL'].item()
-        elif metric == 3:
-            score = results[metric_name].item()
-        elif metric == 4:
+        elif metric == TextMetric.MT.value:
+            score = results[metric].item()
+        elif metric == TextMetric.CH.value:
             score = results['score'] / 100
-        elif metric == 5:
+        elif metric == TextMetric.CR.value:
             score = results
         else:
-            score = results[metric_name]
+            score = results[metric]
     return score
 
 
@@ -228,6 +226,8 @@ def metric_measurement(dataset_name):
     list_models_and_temps = sorted(os.listdir(ai_code_path))
     humaneval_scripts = sorted(os.listdir(humaneval_baseline_path))
 
+    list_metrics = [e for e in TextMetric]
+
     # Experiment-resumption mechanism
     if not os.path.exists(metric_folder_path):
         os.mkdir(metric_folder_path)
@@ -238,11 +238,14 @@ def metric_measurement(dataset_name):
         # Obtaining the starting point of exp-resumption
         metric_file_exists = True
 
-        list_metric_results = os.listdir(metric_folder_path)
-        list_metric_results = list(filter(lambda x: not x.endswith('.csv'), list_metric_results))
+        list_dir = os.listdir(metric_folder_path)
+        list_metric_results = list(filter(lambda x: not x.endswith('.csv'), list_dir))
+
         metric_starting_index = len(list_metric_results)-1
-        last_tested_metric = Metric(metric_starting_index).name
-        metric_folder_name = f'{last_tested_metric}_tasks'
+        last_tested_metric = list_metrics[metric_starting_index]
+        metric_name = last_tested_metric.value
+
+        metric_folder_name = f'{metric_name}_tasks'
         last_tested_metric_path = os.path.join(metric_folder_path, metric_folder_name)
         list_tested_tasks = sorted(list_non_hidden_files(last_tested_metric_path), key=custom_sort_key)
         task_starting_index = len(list_tested_tasks)-1
@@ -259,7 +262,7 @@ def metric_measurement(dataset_name):
                 metric_starting_index += 1
                 task_starting_index = 0
 
-                if metric_starting_index == len(Metric):
+                if metric_starting_index == len(list_metrics):
                     print('Metric measurement complete')
                     exit(0)
 
@@ -285,8 +288,9 @@ def metric_measurement(dataset_name):
 
     exp_continuation_started = False
 
-    for metric_index in range(metric_starting_index, len(Metric)):
-        metric_name = Metric(metric_index).name
+    for metric_index in range(metric_starting_index, len(list_metrics)):
+        current_metric = list_metrics[metric_index]
+        metric_name = current_metric.value
 
         target_folder_name = f'{metric_name}_tasks'
         current_metric_path = os.path.join(metric_folder_path, target_folder_name)
@@ -359,7 +363,7 @@ def metric_measurement(dataset_name):
                     script_test_pass = funct_test_results[script_file]['successful']
 
                     # Measuring the metric score of the current script
-                    score = calculate_metric(metric_index, humaneval_script, cleaned_script, metric_calc, shared_ngrams)
+                    score = calculate_metric(metric_name, humaneval_script, cleaned_script, metric_calc, shared_ngrams)
                     dict_entry = {'model&temp': target_model_and_temp,
                                   'script': script_file,
                                   'pass': script_test_pass}
