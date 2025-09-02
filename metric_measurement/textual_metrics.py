@@ -408,6 +408,8 @@ def metric_measurement(dataset_name):
             task_starting_index = 0
             exp_continuation_started = True
 
+    merge_task_metrics(dataset_name)
+
 
 def merge_task_metrics(dataset_name):
     metric_results_path = gp.get_metric_score_path(dataset_name)
