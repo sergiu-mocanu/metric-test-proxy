@@ -213,7 +213,7 @@ def calculate_metric(metric, baseline, generated_script, metric_calc=None, share
     return score
 
 
-def metric_measurement(dataset_name):
+def full_metric_measurement(dataset_name):
     """
     Function that iterates over the LLM-generated scripts and measures the metric score all the studied metrics
     :return: writes a csv file with the obtained score as well as pass/fail label for each AI-script
@@ -408,10 +408,10 @@ def metric_measurement(dataset_name):
             task_starting_index = 0
             exp_continuation_started = True
 
-    merge_task_metrics(dataset_name)
+    merge_metrics_results(dataset_name)
 
 
-def merge_task_metrics(dataset_name):
+def merge_metrics_results(dataset_name):
     metric_results_path = gp.get_metric_score_path(dataset_name)
     for item in sorted(os.listdir(metric_results_path)):
         current_item_path = os.path.join(metric_results_path, item)
