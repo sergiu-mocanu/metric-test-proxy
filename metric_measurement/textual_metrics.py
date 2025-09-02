@@ -298,11 +298,11 @@ def full_metric_measurement(dataset_name):
             os.mkdir(current_metric_path)
 
         # Preloading metric module for all metrics except CodeBLEU
-        if metric_index != 1 and metric_index != 5:
+        if current_metric != TextMetric.CB and current_metric != TextMetric.CR:
             metric_calc = ev.load(metric_name)
             shared_ngrams = None
 
-        elif metric_index == 5:
+        elif current_metric == TextMetric.CR:
             python_corpus = get_python_corpus()
             shared_ngrams = extract_shared_ngrams(python_corpus)
             metric_calc = None
@@ -368,7 +368,7 @@ def full_metric_measurement(dataset_name):
                                   'script': script_file,
                                   'pass': script_test_pass}
 
-                    if metric_index != 1:
+                    if current_metric != TextMetric.CB:
                         dict_entry.update({'score': score})
 
                     else:
