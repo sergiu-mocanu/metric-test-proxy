@@ -414,7 +414,7 @@ def merge_task_metrics(dataset_name):
     for item in sorted(os.listdir(metric_results_path)):
         current_item_path = os.path.join(metric_results_path, item)
 
-        if os.path.isdir(current_item_path) and item == 'crystalbleu_tasks':
+        if os.path.isdir(current_item_path):
             merged_df = pd.DataFrame()
 
             for metric_file in sorted(os.listdir(current_item_path), key=custom_sort_key):
