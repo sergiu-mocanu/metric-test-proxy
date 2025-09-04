@@ -1,7 +1,6 @@
 import copy
 import os
 import json
-import itertools
 import numpy as np
 import pandas as pd
 from enum import Enum
@@ -18,13 +17,16 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.linear_model import LogisticRegression
 
 from pathlib import Path
+
 from pathing import get_path as gp
+from metric_measurement.textual_metrics import TextMetric, CodeDataset
+
 
 test_pred_file_name = 'test_pred.json'
 precision_recall_file_name = 'precision_recall.json'
 avg_var_file_name = 'avg_var.json'
 
-metric_names = ['bleu', 'codebleu', 'rouge', 'meteor', 'chrf', 'crystalbleu']
+metric_names = [e.value for e in TextMetric]
 
 
 class Classifier(str, Enum):
@@ -306,32 +308,41 @@ def format_logreg_results(logreg_dict):
     return '\n'.join(formated_rows)
 
 
-def display_classification_results(dataset_name, classifier_name, metric=None, iterations=False, num_iterations=5):
-    metric_name = Metric(metric).name
-    metric_title = metric_name_to_title(metric_name)
-    classification_results_folder = gp.get_classification_results_path(dataset_name, classifier_name,
-                                                                       iterations=iterations)
-
-    if iterations:
-        target_file_name = precision_recall_file_name
+def display_classification_results(dataset_name, classifier_name, target_metric=None, iterations=False, num_iterations=5):
+    if target_metric is None:
+        list_metrics = metric_names
     else:
-        target_file_name = avg_var_file_name
+        list_metrics = [target_metric]
 
-    target_file_path = os.path.join(classification_results_folder, target_file_name)
+    for metric in list_metrics:
+        metric_title = metric_name_to_title(metric)
+        classification_results_folder = gp.get_classification_results_path(dataset_name, classifier_name,
+                                                                           iterations=iterations)
 
-    with open(target_file_path, 'r') as f:
-        logreg_dict = json.load(f)
+        if iterations:
+            target_file_name = f'{metric}_{precision_recall_file_name}'
+        else:
+            target_file_name = f'{metric}_{avg_var_file_name}'
 
-    if iterations:
-        logreg_dict = logreg_dict[:num_iterations]
+        target_file_path = os.path.join(classification_results_folder, target_file_name)
 
-    print(f'\nLogistic Regression results for \"{metric_title}\" metric (average and variance):\n')
-    for key in list(logreg_dict.keys()):
-        print(f'{key}:')
-        print(f"{' ':<12} {'precision':>10} {'recall':>10} {'f1-score':>10} {'support':>10}")
-        print(format_logreg_results(logreg_dict[key]))
-        print('\n' + '-' * 60 + '\n')
-    print('\n')
+        with open(target_file_path, 'r') as f:
+            logreg_dict = json.load(f)
+
+        if iterations:
+            logreg_dict = logreg_dict[:num_iterations]
+
+        first_entry = False
+        print(f'\nLogistic Regression results for \"{metric_title}\" metric (average and variance):\n')
+        for key in list(logreg_dict.keys()):
+            print(f'{key}:')
+            print(f"{' ':<12} {'precision':>10} {'recall':>10} {'f1-score':>10} {'support':>10}")
+            print(format_logreg_results(logreg_dict[key]))
+
+            if not first_entry:
+                print('\n' + '-' * 60 + '\n')
+                first_entry = True
+        print('\n' + '/' * 60)
 
 
 def generate_confusion_matrix(dataset_name, classifier_name, nb_iterations, metric_name=None, font_size=14):
@@ -415,3 +426,6 @@ def run_full_exp_protocol(dataset_name, classifier_name, nb_iterations=100):
 
     else:
         raise Exception(f'Unknown classifier "{classifier_name}"')
+
+
+display_classification_results(CodeDataset.original, Classifier.LR)
