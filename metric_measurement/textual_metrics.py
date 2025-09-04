@@ -1,9 +1,12 @@
 import os
 import signal
 import json
+import logging
+import subprocess
+import sys
 
 import pandas as pd
-from enum import StrEnum
+from enum import Enum
 
 from pathing import get_path as gp
 
@@ -17,24 +20,20 @@ with contextlib.redirect_stderr(stderr):
     # Supress warning about missing installation of a deeplearning framework
     import evaluate as ev
 
+
 import re
 from collections import Counter
 from nltk.util import ngrams
 from crystalbleu import corpus_bleu
 
 
-class TextMetric(StrEnum):
-    BL = 'bleu'
-    CB = 'codebleu'
-    RG = 'rouge'
-    MT = 'meteor'
-    CH = 'chrf'
-    CR = 'crystalbleu'
-
-
-class CodeDataset(StrEnum):
-    original = 'ai_code'
-    distinct = 'ai_code_distinct'
+class Metric(Enum):
+    bleu = 0
+    codebleu = 1
+    rouge = 2
+    meteor = 3
+    chrf = 4
+    crystalbleu = 5
 
 
 ##################### CrystalBLEU #####################
@@ -62,6 +61,25 @@ def extract_shared_ngrams(corpus):
     return shared_ngrams
 
 #######################################################
+
+
+def start_logger(logger_name):
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.DEBUG)
+
+    log_file = f'{logger_name}.log'
+    file_handler = logging.FileHandler(log_file, mode='a')
+
+    log_format = '%(message)s'
+    formatter = logging.Formatter(log_format)
+
+    file_handler.setFormatter(formatter)
+
+    logger.addHandler(file_handler)
+
+    return logger
+
+
 # noinspection PyUnusedLocal
 def timeout_handler(signum, frame):
     # Custom TimeOut exception used in 'test_functionality()' function
@@ -153,12 +171,220 @@ def code_cleanup(script, remove_assert=False, remove_exit=False):
     return clean_script
 
 
+def extract_checker(script):
+    # Function that extracts the test component of HumanEval implementations
+
+    # Extracting the 'checker' part of the HumanEval implementation
+    extracted_checker = script.split('def check(', 1)[1]
+    res = 'def check(' + extracted_checker
+
+    list_lines = res.split('\n')
+
+    del_index = []
+
+    # Indexing empty lines, comments and useless asserts
+    for index, line in enumerate(list_lines):
+        if (len(line) == 0
+                or line.isspace()
+                or '#' in line
+                or 'assert True' in line):
+            del_index.append(index)
+
+    for index in reversed(del_index):
+        del list_lines[index]
+
+    res = '\n'.join(list_lines)
+    return res
+
+
+def test_impl_functionality(dataset_name):
+    """
+    Function that takes the AI-generated implementations and tests their correct functionality against the tests from
+    the HumanEval implementation
+
+    The result is saved locally in json files
+    """
+    ai_code_path = gp.get_ai_code_path(dataset_name)
+    funct_test_path = gp.get_functionality_test_path(dataset_name)
+    humaneval_baseline_path = gp.get_humaneval_baseline_path()
+
+    humaneval_scripts = sorted(os.listdir(humaneval_baseline_path))
+
+    exp_continuation_started = False
+
+    test_file_write_counter = 50
+
+    # Experiment-resumption mechanism
+    if os.path.exists(funct_test_path):
+        test_file_exists = True
+
+        # Obtaining the starting point of exp-resumption
+        list_models = sorted(os.listdir(funct_test_path))
+        last_tested_model = list_models[-1]
+        last_model_path = os.path.join(funct_test_path, last_tested_model)
+
+        list_model_temperatures = sorted(os.listdir(last_model_path))
+        last_tested_temperature = list_model_temperatures[-1]
+        tasks_folder_path = os.path.join(last_model_path, last_tested_temperature)
+
+        list_tested_tasks = sorted(os.listdir(tasks_folder_path), key=custom_sort_key)
+        last_task_name = list_tested_tasks[-1]
+        last_task_path = os.path.join(tasks_folder_path, last_task_name)
+        with open(last_task_path, 'r') as f:
+            dict_test = json.load(f)
+            if 'test_complete' in dict_test.keys() and dict_test['test_complete']:
+                last_task_index = len(list_tested_tasks)
+                last_task_name = f'HumanEval_{last_task_index}.json'
+                script_starting_index = 0
+            else:
+                script_starting_index = len(dict_test.keys())-1
+
+        model_name_and_temp = f'{last_tested_model}_{last_tested_temperature}'
+        list_models = sorted(os.listdir(ai_code_path))
+        model_temp_starting_index = list_models.index(model_name_and_temp)
+
+        task_starting_index = int(last_task_name.split('_')[1].strip('.json'))
+
+    else:
+        test_file_exists = False
+        script_starting_index = task_starting_index = model_temp_starting_index = 0
+
+    list_models = sorted(os.listdir(ai_code_path))
+    for model_index in range(model_temp_starting_index, len(list_models)):
+        model_name_and_temp = list_models[model_index]
+        model_path = os.path.join(ai_code_path, model_name_and_temp)
+
+        print(f'Testing model: {model_name_and_temp}')
+
+        list_tasks = sorted(os.listdir(model_path), key=custom_sort_key)
+
+        for task_index in range(task_starting_index, len(list_tasks)):
+            # Skipping Task_145 due to lack of AI-code that accomplishes the said task
+            if task_index == 145:
+                continue
+
+            task_name = f'HumanEval_{task_index}'
+            model_name = model_name_and_temp.split('_')[0]
+            model_temp = model_name_and_temp[-8:]
+
+            test_file_path = os.path.join(funct_test_path, model_name, model_temp, f'{task_name}.json')
+            if os.path.exists(test_file_path):
+                with open(test_file_path, 'r') as f:
+                    dict_test = json.load(f)
+            else:
+                dict_test: dict[str, bool | dict] = {'test_complete': False}
+
+            test_folder_path = test_file_path.rpartition('/')[0]
+            if not os.path.exists(test_folder_path):
+                os.makedirs(test_folder_path)
+
+            # Recovering the HumanEval per-task functionality tests
+            humaneval_file_name = humaneval_scripts[task_index]
+            humaneval_file_path = os.path.join(humaneval_baseline_path, humaneval_file_name)
+
+            humaneval_content = open(humaneval_file_path, 'r').read()
+
+            checker = extract_checker(humaneval_content)
+
+            generated_scripts_path = os.path.join(model_path, task_name)
+
+            list_generated_scripts = sorted(os.listdir(generated_scripts_path), key=custom_sort_key)
+
+            for script_index in range(script_starting_index, len(list_generated_scripts)): # noqa
+                # Cleaning and merging the LLM-generated script with the HumanEval functionality tests
+                script_name = list_generated_scripts[script_index]
+                script_path = os.path.join(generated_scripts_path, script_name)
+                script_content = open(script_path, 'r').read()
+                cleaned_script = code_cleanup(script_content, remove_exit=True)
+
+                merged_code = cleaned_script + '\n\n' + checker
+
+                dict_test[script_name] = {}
+
+                # Executing the merged script in a separate subprocess and stocking the result of the functionality test
+                try:
+                    subprocess.run(
+                        [sys.executable, '-c', merged_code],
+                        stderr=subprocess.PIPE,
+                        timeout=2,
+                        check=True
+                    )
+
+                    dict_test[script_name]['successful'] = True
+
+                except subprocess.TimeoutExpired:
+                    dict_test[script_name]['successful'] = False
+                    dict_test[script_name]['error_type'] = 'TimeOut'
+
+                except subprocess.CalledProcessError as e:
+                    dict_test[script_name]['successful'] = False
+
+                    error_name_and_message = e.stderr.decode().split('\n')[-2]
+
+                    if 'AssertionError' in error_name_and_message:
+                        dict_test[script_name]['error_type'] = 'AssertionError'
+
+                    elif ':' in error_name_and_message:
+                        error_name = error_name_and_message.split(':')[0]
+                        error_message = error_name_and_message.split(':')[1].strip()
+                        dict_test[script_name]['error_type'] = error_name
+                        dict_test[script_name]['error_message'] = error_message
+
+                    else:
+                        dict_test[script_name]['error_type'] = error_name_and_message
+
+                # Writing the results in a json file every 50 iterations
+                test_file_write_counter -= 1
+                if not test_file_write_counter:
+                    test_file_write_counter = 50
+                    with open(test_file_path, 'w') as f:
+                        json.dump(dict_test, f) # type: ignore
+
+            dict_test['test_complete'] = True
+
+            with open(test_file_path, 'w') as f:
+                json.dump(dict_test, f) # type: ignore
+
+            # Experiment resumption mechanism (i.e., reinitializing the starting index after re-launching the exp)
+            if test_file_exists and not exp_continuation_started:
+                script_starting_index = 0
+        if test_file_exists and not exp_continuation_started:
+            task_starting_index = 0
+            exp_continuation_started = True
+
+
+def successful_test_counter(dataset_name):
+    # Function that measures the rate of successful tests of the AI-generated code
+    funct_test_path = gp.get_functionality_test_path(dataset_name)
+
+    total_tests_counter = 0
+    failed_tests_counter = 0
+
+    for path, folders, files in os.walk(funct_test_path):
+        for file_name in files:
+            test_file_path = os.path.join(path, file_name)
+            with open(test_file_path, 'r') as f:
+                model_dict = json.load(f)
+
+            keys = model_dict.keys()
+            total_tests_counter += len(keys)
+
+            for key in list(model_dict.keys())[1:]:
+                if not model_dict[key]['successful']:
+                    failed_tests_counter += 1
+
+    print(f'Total number of tests:  {total_tests_counter}')
+    print(f'Number of failed tests: {failed_tests_counter}')
+
+    rate_failed_tests = (100 / total_tests_counter) * failed_tests_counter
+    print(f'Rate of failed tests: {rate_failed_tests}%')
+
+
 def list_non_hidden_files(dir_path):
     # Function that returns the list of visible files from a given directory
     return [f for f in os.listdir(dir_path) if not f.startswith('.')]
 
 
-# TODO: update the docstring with the new `metric` datatype
 def calculate_metric(metric, baseline, generated_script, metric_calc=None, shared_ngrams=None):
     """
     Function that measures the LLM-script score of a given metric against the HumanEval implementation
@@ -170,10 +396,12 @@ def calculate_metric(metric, baseline, generated_script, metric_calc=None, share
     :param shared_ngrams: dictionary of most common ngrams used for CrystalBLEU score measurement
     :return: metric score
     """
+    metric_name = Metric(metric).name
+
     score = {}
 
     if not generated_script:
-        if metric != TextMetric.CB.value:
+        if metric != 1:
             return 0
         else:
             return {"codebleu": 0.0,
@@ -182,7 +410,7 @@ def calculate_metric(metric, baseline, generated_script, metric_calc=None, share
                     "syntax_match_score": 0.0,
                     "dataflow_match_score": 0.0}
 
-    if metric == TextMetric.CB.value:
+    if metric == 1:
         metric_complete = False
         signal.alarm(2)
         while not metric_complete:
@@ -195,9 +423,9 @@ def calculate_metric(metric, baseline, generated_script, metric_calc=None, share
                 signal.alarm(2)
 
     else:
-        if metric == TextMetric.RG.value:
+        if metric == 2:
             results = metric_calc.compute(predictions=[generated_script], references=[baseline], rouge_types=['rougeL'])
-        elif metric == TextMetric.CR.value:
+        elif metric == 5:
             tokenized_baseline = tokenize(baseline)
             tokenized_generated_script = tokenize(generated_script)
             results = corpus_bleu([[tokenized_baseline]], [tokenized_generated_script],
@@ -205,20 +433,20 @@ def calculate_metric(metric, baseline, generated_script, metric_calc=None, share
         else:
             results = metric_calc.compute(predictions=[generated_script], references=[baseline])
 
-        if metric == TextMetric.RG.value:
+        if metric == 2:
             score = results['rougeL'].item()
-        elif metric == TextMetric.MT.value:
-            score = results[metric].item()
-        elif metric == TextMetric.CH.value:
+        elif metric == 3:
+            score = results[metric_name].item()
+        elif metric == 4:
             score = results['score'] / 100
-        elif metric == TextMetric.CR.value:
+        elif metric == 5:
             score = results
         else:
-            score = results[metric]
+            score = results[metric_name]
     return score
 
 
-def full_metric_measurement(dataset_name):
+def metric_measurement(dataset_name):
     """
     Function that iterates over the LLM-generated scripts and measures the metric score all the studied metrics
     :return: writes a csv file with the obtained score as well as pass/fail label for each AI-script
@@ -231,8 +459,6 @@ def full_metric_measurement(dataset_name):
     list_models_and_temps = sorted(os.listdir(ai_code_path))
     humaneval_scripts = sorted(os.listdir(humaneval_baseline_path))
 
-    list_metrics = [e for e in TextMetric]
-
     # Experiment-resumption mechanism
     if not os.path.exists(metric_folder_path):
         os.mkdir(metric_folder_path)
@@ -243,14 +469,11 @@ def full_metric_measurement(dataset_name):
         # Obtaining the starting point of exp-resumption
         metric_file_exists = True
 
-        list_dir = os.listdir(metric_folder_path)
-        list_metric_results = list(filter(lambda x: not x.endswith('.csv'), list_dir))
-
+        list_metric_results = os.listdir(metric_folder_path)
+        list_metric_results = list(filter(lambda x: not x.endswith('.csv'), list_metric_results))
         metric_starting_index = len(list_metric_results)-1
-        last_tested_metric = list_metrics[metric_starting_index]
-        metric_name = last_tested_metric.value
-
-        metric_folder_name = f'{metric_name}_tasks'
+        last_tested_metric = Metric(metric_starting_index).name
+        metric_folder_name = f'{last_tested_metric}_tasks'
         last_tested_metric_path = os.path.join(metric_folder_path, metric_folder_name)
         list_tested_tasks = sorted(list_non_hidden_files(last_tested_metric_path), key=custom_sort_key)
         task_starting_index = len(list_tested_tasks)-1
@@ -267,7 +490,7 @@ def full_metric_measurement(dataset_name):
                 metric_starting_index += 1
                 task_starting_index = 0
 
-                if metric_starting_index == len(list_metrics):
+                if metric_starting_index == len(Metric):
                     print('Metric measurement complete')
                     exit(0)
 
@@ -293,9 +516,8 @@ def full_metric_measurement(dataset_name):
 
     exp_continuation_started = False
 
-    for metric_index in range(metric_starting_index, len(list_metrics)):
-        current_metric = list_metrics[metric_index]
-        metric_name = current_metric.value
+    for metric_index in range(metric_starting_index, len(Metric)):
+        metric_name = Metric(metric_index).name
 
         target_folder_name = f'{metric_name}_tasks'
         current_metric_path = os.path.join(metric_folder_path, target_folder_name)
@@ -303,11 +525,11 @@ def full_metric_measurement(dataset_name):
             os.mkdir(current_metric_path)
 
         # Preloading metric module for all metrics except CodeBLEU
-        if current_metric != TextMetric.CB and current_metric != TextMetric.CR:
-            metric_calc = ev.load(str(metric_name))
+        if metric_index != 1 and metric_index != 5:
+            metric_calc = ev.load(metric_name)
             shared_ngrams = None
 
-        elif current_metric == TextMetric.CR:
+        elif metric_index == 5:
             python_corpus = get_python_corpus()
             shared_ngrams = extract_shared_ngrams(python_corpus)
             metric_calc = None
@@ -368,12 +590,12 @@ def full_metric_measurement(dataset_name):
                     script_test_pass = funct_test_results[script_file]['successful']
 
                     # Measuring the metric score of the current script
-                    score = calculate_metric(metric_name, humaneval_script, cleaned_script, metric_calc, shared_ngrams)
+                    score = calculate_metric(metric_index, humaneval_script, cleaned_script, metric_calc, shared_ngrams)
                     dict_entry = {'model&temp': target_model_and_temp,
                                   'script': script_file,
                                   'pass': script_test_pass}
 
-                    if current_metric != TextMetric.CB:
+                    if metric_index != 1:
                         dict_entry.update({'score': score})
 
                     else:
@@ -413,15 +635,13 @@ def full_metric_measurement(dataset_name):
             task_starting_index = 0
             exp_continuation_started = True
 
-    merge_metrics_results(dataset_name)
 
-
-def merge_metrics_results(dataset_name):
+def merge_task_metrics(dataset_name):
     metric_results_path = gp.get_metric_score_path(dataset_name)
     for item in sorted(os.listdir(metric_results_path)):
         current_item_path = os.path.join(metric_results_path, item)
 
-        if os.path.isdir(current_item_path):
+        if os.path.isdir(current_item_path) and item == 'crystalbleu_tasks':
             merged_df = pd.DataFrame()
 
             for metric_file in sorted(os.listdir(current_item_path), key=custom_sort_key):

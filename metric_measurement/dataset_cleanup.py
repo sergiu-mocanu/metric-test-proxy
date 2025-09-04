@@ -88,7 +88,7 @@ def remove_duplicate_scripts(folder_path):
 
     dict_path = '../exp_results/duplicate_scripts/duplicate_scripts.json'
     with open(dict_path, 'w') as f:
-        json.dump(dict_duplicate_scripts, f)
+        json.dump(dict_duplicate_scripts, f) # type: ignore
 
 
 def delete_empty_folders(folder_path):
@@ -133,7 +133,7 @@ def clean_functionality_tests():
 
             if len(dict_funct_test.keys()) > 1:
                 with open(target_path, 'w') as f:
-                    json.dump(dict_funct_test, f)
+                    json.dump(dict_funct_test, f) # type: ignore
             else:
                 os.remove(target_path)
 
