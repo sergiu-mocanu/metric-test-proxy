@@ -32,7 +32,7 @@ class TextMetric(str, Enum):
     CR = 'crystalbleu'
 
 
-class Dataset(str, Enum):
+class CodeDataset(str, Enum):
     original = 'ai_code'
     distinct = 'ai_code_distinct'
 
