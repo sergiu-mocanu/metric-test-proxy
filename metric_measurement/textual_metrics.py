@@ -3,7 +3,7 @@ import signal
 import json
 
 import pandas as pd
-from enum import Enum
+from enum import StrEnum
 
 from pathing import get_path as gp
 
@@ -23,7 +23,7 @@ from nltk.util import ngrams
 from crystalbleu import corpus_bleu
 
 
-class TextMetric(str, Enum):
+class TextMetric(StrEnum):
     BL = 'bleu'
     CB = 'codebleu'
     RG = 'rouge'
@@ -32,7 +32,7 @@ class TextMetric(str, Enum):
     CR = 'crystalbleu'
 
 
-class CodeDataset(str, Enum):
+class CodeDataset(StrEnum):
     original = 'ai_code'
     distinct = 'ai_code_distinct'
 
