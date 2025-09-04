@@ -89,7 +89,7 @@ def execute_test(merged_code):
         return test_result
 
 
-def test_impl_functionality(dataset_name):
+def complete_functionality_test(dataset_name):
     """
     Function that takes the AI-generated implementations and tests their correct functionality against the tests from
     the HumanEval implementation
@@ -167,7 +167,7 @@ def test_impl_functionality(dataset_name):
             if not os.path.exists(test_folder_path):
                 os.makedirs(test_folder_path)
 
-            checker = get_humaneval_test(task_index)
+            humaneval_test = get_humaneval_test(task_index)
 
             generated_scripts_path = os.path.join(model_path, task_name)
 
@@ -180,7 +180,7 @@ def test_impl_functionality(dataset_name):
                 script_content = open(script_path, 'r').read()
                 cleaned_script = code_cleanup(script_content, remove_exit=True)
 
-                merged_code = cleaned_script + '\n\n' + checker
+                merged_code = cleaned_script + '\n\n' + humaneval_test
 
                 test_result = execute_test(merged_code)
 
