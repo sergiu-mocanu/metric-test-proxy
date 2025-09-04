@@ -323,9 +323,14 @@ def display_classification_results(dataset_name, classifier_name, target_metric=
                                                                            iterations=iterations)
 
         if iterations:
-            target_file_name = f'{metric}_{precision_recall_file_name}'
+            target_file_suffix = f'{precision_recall_file_name}'
         else:
-            target_file_name = f'{metric}_{avg_var_file_name}'
+            target_file_suffix = f'{avg_var_file_name}'
+
+        if classifier_name == Classifier.LR:
+            target_file_name = f'{metric}_{target_file_suffix}'
+        else:
+            target_file_name = f'{target_file_suffix}'
 
         target_file_path = os.path.join(classification_results_folder, target_file_name)
 
@@ -336,7 +341,11 @@ def display_classification_results(dataset_name, classifier_name, target_metric=
             logreg_dict = logreg_dict[:num_iterations]
 
         first_entry = False
-        print(f'\nLogistic Regression results for \"{metric_title}\" metric (average and variance):\n')
+
+        if classifier_name == Classifier.LR:
+            print(f'\nLogistic Regression classification results for \"{metric_title}\" metric (average and variance):\n')
+        else:
+            print(f'\nDecision Tree classification results (average and variance):\n')
         for key in list(logreg_dict.keys()):
             print(f'{key}:')
             print(f"{' ':<12} {'precision':>10} {'recall':>10} {'f1-score':>10} {'support':>10}")
@@ -346,6 +355,9 @@ def display_classification_results(dataset_name, classifier_name, target_metric=
                 print('\n' + '-' * 60 + '\n')
                 first_entry = True
         print('\n' + '/' * 60)
+
+        if classifier_name == Classifier.DT:
+            exit(0)
 
 
 def generate_confusion_matrix(dataset_name, classifier_name, nb_iterations, metric_name=None, font_size=14):
@@ -429,6 +441,3 @@ def run_full_exp_protocol(dataset_name, classifier_name, nb_iterations=100):
 
     else:
         raise Exception(f'Unknown classifier "{classifier_name}"')
-
-
-display_classification_results(CodeDataset.original, Classifier.LR)
