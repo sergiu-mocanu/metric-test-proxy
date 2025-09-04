@@ -32,6 +32,11 @@ class TextMetric(str, Enum):
     CR = 'crystalbleu'
 
 
+class Dataset(str, Enum):
+    original = 'ai_code'
+    distinct = 'ai_code_distinct'
+    
+
 ##################### CrystalBLEU #####################
 def tokenize(raw_string):
     return re.findall(r"\w+|[^\w\s]", raw_string)
