@@ -276,9 +276,10 @@ def measure_average_variance(dataset_name, classifier_name):
 def format_logreg_results(logreg_dict, first_entry):
     if first_entry:
         row_format = '{:<12} {:>10.2f} {:>10.2f} {:>10.2f} {:>10}'
+        row_format_accuracy = '{:<33}  {:>10.2f} {:>10}'
     else:
         row_format = '{:<12} {:>10.4f} {:>10.4f} {:>10.4f} {:>10}'
-    row_format_accuracy = '{:<33}  {:>10.2f} {:>10}'
+        row_format_accuracy = '{:<33}  {:>10.4f} {:>10}'
 
     formated_rows = []
 
@@ -441,3 +442,4 @@ def run_full_exp_protocol(dataset_name, classifier_name, nb_iterations=100):
 
     else:
         raise Exception(f'Unknown classifier "{classifier_name}"')
+    
