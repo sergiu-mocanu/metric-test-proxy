@@ -273,8 +273,11 @@ def measure_average_variance(dataset_name, classifier_name):
                 json.dump(avg_var_dict, f)
 
 
-def format_logreg_results(logreg_dict):
-    row_format = '{:<12} {:>10.2f} {:>10.2f} {:>10.2f} {:>10}'
+def format_logreg_results(logreg_dict, first_entry):
+    if first_entry:
+        row_format = '{:<12} {:>10.2f} {:>10.2f} {:>10.2f} {:>10}'
+    else:
+        row_format = '{:<12} {:>10.4f} {:>10.4f} {:>10.4f} {:>10}'
     row_format_accuracy = '{:<33}  {:>10.2f} {:>10}'
 
     formated_rows = []
@@ -337,7 +340,7 @@ def display_classification_results(dataset_name, classifier_name, target_metric=
         for key in list(logreg_dict.keys()):
             print(f'{key}:')
             print(f"{' ':<12} {'precision':>10} {'recall':>10} {'f1-score':>10} {'support':>10}")
-            print(format_logreg_results(logreg_dict[key]))
+            print(format_logreg_results(logreg_dict[key], not first_entry))
 
             if not first_entry:
                 print('\n' + '-' * 60 + '\n')
