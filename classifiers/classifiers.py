@@ -260,7 +260,7 @@ def measure_average_variance(dataset_name, classifier_name):
             with open(current_file_path, 'r') as f:
                 logreg_dict = json.load(f)
 
-            metric_name = next((metric for metric in metric_names if file_name.startswith(metric)), None)
+            metric_name = next((metric for metric in metric_names if file_name.startswith(str(metric))), None)
             metric_suffix = get_metric_suffix(metric_name)
             current_avg_var_name = metric_suffix + avg_var_file_name
 
