@@ -38,6 +38,57 @@ def extract_checker(script):
     return res
 
 
+def get_humaneval_test(task):
+    humaneval_baseline_path = gp.get_humaneval_baseline_path()
+    humaneval_scripts = sorted(os.listdir(humaneval_baseline_path))
+
+    humaneval_file_name = humaneval_scripts[task]
+    humaneval_file_path = os.path.join(humaneval_baseline_path, humaneval_file_name)
+
+    humaneval_content = open(humaneval_file_path, 'r').read()
+
+    checker = extract_checker(humaneval_content)
+
+    return checker
+
+
+def execute_test(merged_code):
+    test_result = {}
+
+    try:
+        subprocess.run(
+            [sys.executable, '-c', merged_code],
+            stderr=subprocess.PIPE,
+            timeout=2,
+            check=True
+        )
+
+        test_result['successful'] = True
+
+    except subprocess.TimeoutExpired:
+        test_result['successful'] = False
+        test_result['error_type'] = 'TimeOut'
+
+    except subprocess.CalledProcessError as e:
+        test_result['successful'] = False
+
+        error_name_and_message = e.stderr.decode().split('\n')[-2]
+
+        if 'AssertionError' in error_name_and_message:
+            test_result['error_type'] = 'AssertionError'
+
+        elif ':' in error_name_and_message:
+            error_name = error_name_and_message.split(':')[0]
+            error_message = error_name_and_message.split(':')[1].strip()
+            test_result['error_type'] = error_name
+            test_result['error_message'] = error_message
+
+        else:
+            test_result['error_type'] = error_name_and_message
+
+        return test_result
+
+
 def test_impl_functionality(dataset_name):
     """
     Function that takes the AI-generated implementations and tests their correct functionality against the tests from
@@ -47,9 +98,6 @@ def test_impl_functionality(dataset_name):
     """
     ai_code_path = gp.get_ai_code_path(dataset_name)
     funct_test_path = gp.get_functionality_test_path(dataset_name)
-    humaneval_baseline_path = gp.get_humaneval_baseline_path()
-
-    humaneval_scripts = sorted(os.listdir(humaneval_baseline_path))
 
     exp_continuation_started = False
 
@@ -119,13 +167,7 @@ def test_impl_functionality(dataset_name):
             if not os.path.exists(test_folder_path):
                 os.makedirs(test_folder_path)
 
-            # Recovering the HumanEval per-task functionality tests
-            humaneval_file_name = humaneval_scripts[task_index]
-            humaneval_file_path = os.path.join(humaneval_baseline_path, humaneval_file_name)
-
-            humaneval_content = open(humaneval_file_path, 'r').read()
-
-            checker = extract_checker(humaneval_content)
+            checker = get_humaneval_test(task_index)
 
             generated_scripts_path = os.path.join(model_path, task_name)
 
@@ -140,39 +182,9 @@ def test_impl_functionality(dataset_name):
 
                 merged_code = cleaned_script + '\n\n' + checker
 
-                dict_test[script_name] = {}
+                test_result = execute_test(merged_code)
 
-                # Executing the merged script in a separate subprocess and stocking the result of the functionality test
-                try:
-                    subprocess.run(
-                        [sys.executable, '-c', merged_code],
-                        stderr=subprocess.PIPE,
-                        timeout=2,
-                        check=True
-                    )
-
-                    dict_test[script_name]['successful'] = True
-
-                except subprocess.TimeoutExpired:
-                    dict_test[script_name]['successful'] = False
-                    dict_test[script_name]['error_type'] = 'TimeOut'
-
-                except subprocess.CalledProcessError as e:
-                    dict_test[script_name]['successful'] = False
-
-                    error_name_and_message = e.stderr.decode().split('\n')[-2]
-
-                    if 'AssertionError' in error_name_and_message:
-                        dict_test[script_name]['error_type'] = 'AssertionError'
-
-                    elif ':' in error_name_and_message:
-                        error_name = error_name_and_message.split(':')[0]
-                        error_message = error_name_and_message.split(':')[1].strip()
-                        dict_test[script_name]['error_type'] = error_name
-                        dict_test[script_name]['error_message'] = error_message
-
-                    else:
-                        dict_test[script_name]['error_type'] = error_name_and_message
+                dict_test[script_name] = test_result
 
                 # Writing the results in a json file every 50 iterations
                 test_file_write_counter -= 1

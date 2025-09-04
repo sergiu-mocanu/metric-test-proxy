@@ -35,7 +35,7 @@ class TextMetric(str, Enum):
 class Dataset(str, Enum):
     original = 'ai_code'
     distinct = 'ai_code_distinct'
-    
+
 
 ##################### CrystalBLEU #####################
 def tokenize(raw_string):
