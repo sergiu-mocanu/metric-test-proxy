@@ -311,7 +311,7 @@ def format_logreg_results(logreg_dict, first_entry):
     formated_rows.insert(2, f'\n{accuracy_row}')
     return '\n'.join(formated_rows)
 
-
+# TODO: rename `classifier_name` to `classifier`
 def display_classification_results(dataset_name, classifier_name, target_metric=None, iterations=False, num_iterations=5):
     if target_metric is None:
         list_metrics = metric_names
@@ -347,6 +347,7 @@ def display_classification_results(dataset_name, classifier_name, target_metric=
             print(f'\nLogistic Regression classification results for \"{metric_title}\" metric (average and variance):\n')
         else:
             print(f'\nDecision Tree classification results (average and variance):\n')
+
         for key in list(logreg_dict.keys()):
             print(f'{key}:')
             print(f"{' ':<12} {'precision':>10} {'recall':>10} {'f1-score':>10} {'support':>10}")
@@ -361,6 +362,7 @@ def display_classification_results(dataset_name, classifier_name, target_metric=
             exit(0)
 
 
+# TODO: rename `classifier_name` to `classifier`; rename `dt_res_path` to `classification_res_path`
 def generate_confusion_matrix(dataset_name, classifier_name, nb_iterations, metric_name=None, font_size=14):
     # Generate the confusion matrix based on the ground truth and predicted labels of pass/fail
     dt_res_path = gp.get_classification_results_path(dataset_name, classifier_name, iterations=True)
@@ -428,6 +430,7 @@ def generate_confusion_matrix(dataset_name, classifier_name, nb_iterations, metr
     plt.close(fig)
 
 
+# TODO: change `classifier_name` type to Classifier; rename `classifier_name` to `classifier`
 def run_full_exp_protocol(dataset_name, classifier_name, nb_iterations=100):
     if classifier_name == Classifier.LR.value:
         compute_logistic_regression(dataset_name, nb_iterations)
@@ -442,4 +445,3 @@ def run_full_exp_protocol(dataset_name, classifier_name, nb_iterations=100):
 
     else:
         raise Exception(f'Unknown classifier "{classifier_name}"')
-    
