@@ -311,6 +311,7 @@ def format_logreg_results(logreg_dict, first_entry):
     formated_rows.insert(2, f'\n{accuracy_row}')
     return '\n'.join(formated_rows)
 
+
 # TODO: rename `classifier_name` to `classifier`
 def display_classification_results(dataset_name, classifier_name, target_metric=None, iterations=False, num_iterations=5):
     if target_metric is None:
@@ -341,7 +342,7 @@ def display_classification_results(dataset_name, classifier_name, target_metric=
         if iterations:
             logreg_dict = logreg_dict[:num_iterations]
 
-        first_entry = False
+        first_entry = True
 
         if classifier_name == Classifier.LR:
             print(f'\nLogistic Regression classification results for \"{metric_title}\" metric (average and variance):\n')
@@ -351,11 +352,11 @@ def display_classification_results(dataset_name, classifier_name, target_metric=
         for key in list(logreg_dict.keys()):
             print(f'{key}:')
             print(f"{' ':<12} {'precision':>10} {'recall':>10} {'f1-score':>10} {'support':>10}")
-            print(format_logreg_results(logreg_dict[key], not first_entry))
+            print(format_logreg_results(logreg_dict[key], first_entry))
 
-            if not first_entry:
+            if first_entry:
                 print('\n' + '-' * 60 + '\n')
-                first_entry = True
+                first_entry = False
         print('\n' + '/' * 60)
 
         if classifier_name == Classifier.DT:
@@ -445,3 +446,6 @@ def run_full_exp_protocol(dataset_name, classifier_name, nb_iterations=100):
 
     else:
         raise Exception(f'Unknown classifier "{classifier_name}"')
+
+
+display_classification_results('ai_code', Classifier.DT)
