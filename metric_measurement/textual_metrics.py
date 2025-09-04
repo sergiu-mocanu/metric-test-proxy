@@ -304,7 +304,7 @@ def full_metric_measurement(dataset_name):
 
         # Preloading metric module for all metrics except CodeBLEU
         if current_metric != TextMetric.CB and current_metric != TextMetric.CR:
-            metric_calc = ev.load(metric_name)
+            metric_calc = ev.load(str(metric_name))
             shared_ngrams = None
 
         elif current_metric == TextMetric.CR:
