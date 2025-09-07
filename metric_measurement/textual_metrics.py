@@ -3,11 +3,9 @@ import signal
 import json
 
 import pandas as pd
-from enum import StrEnum
 
 from pathing import get_path as gp
-
-from codebleu import calc_codebleu
+from metric_measurement.enum import CodeDataset, TextMetric
 
 import io
 import contextlib
@@ -17,25 +15,13 @@ with contextlib.redirect_stderr(stderr):
     # Supress warning about missing installation of a deeplearning framework
     import evaluate as ev
 
+from codebleu import calc_codebleu
+
+
 import re
 from collections import Counter
 from nltk.util import ngrams
 from crystalbleu import corpus_bleu
-
-
-class TextMetric(StrEnum):
-    BL = 'bleu'
-    CB = 'codebleu'
-    RG = 'rouge'
-    MT = 'meteor'
-    CH = 'chrf'
-    CR = 'crystalbleu'
-
-
-class CodeDataset(StrEnum):
-    original = 'ai_code'
-    distinct = 'ai_code_distinct'
-
 
 ##################### CrystalBLEU #####################
 def tokenize(raw_string):
@@ -218,14 +204,14 @@ def calculate_metric(metric, baseline, generated_script, metric_calc=None, share
     return score
 
 
-def full_metric_measurement(dataset_name):
+def full_metric_measurement(code_dataset: CodeDataset):
     """
     Function that iterates over the LLM-generated scripts and measures the metric score all the studied metrics
     :return: writes a csv file with the obtained score as well as pass/fail label for each AI-script
     """
-    ai_code_path = gp.get_ai_code_path(dataset_name)
-    metric_folder_path = gp.get_metric_score_path(dataset_name)
-    functionality_test_path = gp.get_functionality_test_path(dataset_name)
+    ai_code_path = gp.get_ai_code_path(code_dataset)
+    metric_folder_path = gp.get_metric_score_path(code_dataset)
+    functionality_test_path = gp.get_functionality_test_path(code_dataset)
     humaneval_baseline_path = gp.get_humaneval_baseline_path()
 
     list_models_and_temps = sorted(os.listdir(ai_code_path))
@@ -413,11 +399,11 @@ def full_metric_measurement(dataset_name):
             task_starting_index = 0
             exp_continuation_started = True
 
-    merge_metrics_results(dataset_name)
+    merge_metrics_results(code_dataset)
 
 
-def merge_metrics_results(dataset_name):
-    metric_results_path = gp.get_metric_score_path(dataset_name)
+def merge_metrics_results(code_dataset: CodeDataset):
+    metric_results_path = gp.get_metric_score_path(code_dataset)
     for item in sorted(os.listdir(metric_results_path)):
         current_item_path = os.path.join(metric_results_path, item)
 

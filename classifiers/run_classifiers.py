@@ -3,7 +3,6 @@ import os
 import json
 import numpy as np
 import pandas as pd
-from enum import Enum
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -18,8 +17,9 @@ from sklearn.linear_model import LogisticRegression
 
 from pathlib import Path
 
+from classifiers.enum import Classifier
+from metric_measurement.enum import TextMetric, CodeDataset
 from pathing import get_path as gp
-from metric_measurement.textual_metrics import TextMetric, CodeDataset
 
 
 test_pred_file_name = 'test_pred.json'
@@ -27,11 +27,6 @@ precision_recall_file_name = 'precision_recall.json'
 avg_var_file_name = 'avg_var.json'
 
 metric_names = [e.value for e in TextMetric]
-
-
-class Classifier(str, Enum):
-    LR = 'logistic_regression'
-    DT = 'decision_tree'
 
 
 def get_metric_suffix(metric_name):
@@ -62,15 +57,13 @@ def metric_name_to_title(metric_name):
     return title
 
 
-def prepare_x_y(dataset_name, list_metrics):
+def prepare_x_y(code_dataset: CodeDataset, list_metrics):
     """
     Function that runs logistic regression over the LLM-generated script results (i.e., establish if a correlation
     exists between metric score and pass/fail label)
     :return: a json file with scores for precision, recall, f1, accuracy
     """
-    gp.check_existing_dataset(dataset_name)
-
-    metric_res_folder_path = gp.get_metric_score_path(dataset_name)
+    metric_res_folder_path = gp.get_metric_score_path(code_dataset)
 
     x = pd.DataFrame()
     y = pd.DataFrame()
@@ -134,13 +127,13 @@ def save_classification_results(classification_results_dict, test_pred_dict, res
         json.dump(test_pred_dict, f)
 
 
-def compute_logistic_regression(dataset_name, nb_iterations):
+def compute_logistic_regression(code_dataset: CodeDataset, nb_iterations):
     """
     Function that runs logistic regression over the LLM-generated script results (i.e., establish if a correlation
     exists between metric score and pass/fail label)
     :return: a json file with scores for precision, recall, f1, accuracy
     """
-    logreg_iterations_folder = gp.get_classification_results_path(dataset_name, Classifier.LR.value, iterations=True)
+    logreg_iterations_folder = gp.get_classification_results_path(code_dataset, Classifier.LR, iterations=True)
 
     os.makedirs(logreg_iterations_folder, exist_ok=True)
 
@@ -151,22 +144,22 @@ def compute_logistic_regression(dataset_name, nb_iterations):
 
     for metric_name in metric_names:
         print(f'Computing \'Logistic Regression\' classification for metric: {metric_name_to_title(metric_name)}')
-        x, y = prepare_x_y(dataset_name, [metric_name])
+        x, y = prepare_x_y(code_dataset, [metric_name])
 
         train_test_classifier(logistic_regression, x, y, classification_results, test_pred, nb_iterations)
 
         save_classification_results(classification_results, test_pred, logreg_iterations_folder, metric_name)
 
 
-def compute_decision_tree(dataset_name, nb_iterations):
+def compute_decision_tree(code_dataset: CodeDataset, nb_iterations):
     print('Computing Decision Tree classification')
-    dt_iterations_folder = gp.get_classification_results_path(dataset_name, Classifier.DT.value, iterations=True)
+    dt_iterations_folder = gp.get_classification_results_path(code_dataset, Classifier.DT, iterations=True)
 
     os.makedirs(dt_iterations_folder, exist_ok=True)
 
     decision_tree = DecisionTreeClassifier()
 
-    x, y = prepare_x_y(dataset_name, metric_names)
+    x, y = prepare_x_y(code_dataset, metric_names)
 
     classification_results = {}
     test_pred = {}
@@ -241,9 +234,9 @@ def avg_var(logreg_res):
     return avg_var_dict
 
 
-def measure_average_variance(dataset_name, classifier_name):
+def measure_average_variance(code_dataset: CodeDataset, classifier: Classifier):
     # Function that measures the average and variance values of the 100 logreg-iteration results
-    iteration_results_folder = gp.get_classification_results_path(dataset_name, classifier_name, iterations=True)
+    iteration_results_folder = gp.get_classification_results_path(code_dataset, classifier, iterations=True)
 
     for file_name in sorted(os.listdir(iteration_results_folder)):
         if file_name.endswith(precision_recall_file_name):
@@ -303,8 +296,8 @@ def format_logreg_results(logreg_dict, first_entry):
     return '\n'.join(formated_rows)
 
 
-# TODO: rename `classifier_name` to `classifier`
-def display_classification_results(dataset_name, classifier_name, target_metric=None, iterations=False, num_iterations=5):
+def display_classification_results(code_dataset: CodeDataset, classifier: Classifier, target_metric=None,
+                                   iterations=False, num_iterations=5):
     if target_metric is None:
         list_metrics = metric_names
     else:
@@ -312,7 +305,7 @@ def display_classification_results(dataset_name, classifier_name, target_metric=
 
     for metric in list_metrics:
         metric_title = metric_name_to_title(metric)
-        classification_results_folder = gp.get_classification_results_path(dataset_name, classifier_name,
+        classification_results_folder = gp.get_classification_results_path(code_dataset, classifier,
                                                                            iterations=iterations)
 
         if iterations:
@@ -320,7 +313,7 @@ def display_classification_results(dataset_name, classifier_name, target_metric=
         else:
             target_file_suffix = f'{avg_var_file_name}'
 
-        if classifier_name == Classifier.LR:
+        if classifier == Classifier.LR:
             target_file_name = f'{metric}_{target_file_suffix}'
         else:
             target_file_name = f'{target_file_suffix}'
@@ -335,7 +328,7 @@ def display_classification_results(dataset_name, classifier_name, target_metric=
 
         first_entry = True
 
-        if classifier_name == Classifier.LR:
+        if classifier == Classifier.LR:
             print(f'\nLogistic Regression classification results for \"{metric_title}\" metric (average and variance):\n')
         else:
             print(f'\nDecision Tree classification results (average and variance):\n')
@@ -350,19 +343,20 @@ def display_classification_results(dataset_name, classifier_name, target_metric=
                 first_entry = False
         print('\n' + '/' * 60)
 
-        if classifier_name == Classifier.DT:
+        if classifier == Classifier.DT:
             exit(0)
 
 
-# TODO: rename `classifier_name` to `classifier`; rename `dt_res_path` to `classification_res_path`
-def generate_confusion_matrix(dataset_name, classifier_name, nb_iterations, metric_name=None, font_size=14):
+# TODO: rename `dt_res_path` to `classification_res_path`
+def generate_confusion_matrix(code_dataset: CodeDataset, classifier: Classifier, nb_iterations, metric_name=None,
+                              font_size=14):
     # Generate the confusion matrix based on the ground truth and predicted labels of pass/fail
-    dt_res_path = gp.get_classification_results_path(dataset_name, classifier_name, iterations=True)
+    dt_res_path = gp.get_classification_results_path(code_dataset, classifier, iterations=True)
     metric_suffix = get_metric_suffix(metric_name)
     target_file_name = metric_suffix + test_pred_file_name
     target_file_path = os.path.join(dt_res_path, target_file_name)
 
-    matrix_folder_path = gp.get_classification_results_path(dataset_name, classifier_name, confusion_matrix=True)
+    matrix_folder_path = gp.get_classification_results_path(code_dataset, classifier, confusion_matrix=True)
     os.makedirs(matrix_folder_path, exist_ok=True)
 
     if metric_name is None:
@@ -378,7 +372,7 @@ def generate_confusion_matrix(dataset_name, classifier_name, nb_iterations, metr
     if metric_name is None:
         metric_name = ''
 
-    print(f'Generating confusion matrix for metric: {metric_name_to_title(metric_name)} {classifier_name}')
+    print(f'Generating confusion matrix for metric: {metric_name_to_title(metric_name)} {classifier.value}')
 
     with open(target_file_path, 'r') as f:
         test_pred_dict = json.load(f)
@@ -422,18 +416,14 @@ def generate_confusion_matrix(dataset_name, classifier_name, nb_iterations, metr
     plt.close(fig)
 
 
-# TODO: change `classifier_name` type to Classifier; rename `classifier_name` to `classifier`
-def run_full_exp_protocol(dataset_name, classifier_name, nb_iterations=100):
-    if classifier_name == Classifier.LR.value:
-        compute_logistic_regression(dataset_name, nb_iterations)
-        measure_average_variance(dataset_name, classifier_name)
+def run_full_exp_protocol(code_dataset: CodeDataset, classifier: Classifier, nb_iterations=100):
+    if classifier == Classifier.LR:
+        compute_logistic_regression(code_dataset, nb_iterations)
+        measure_average_variance(code_dataset, classifier)
         for metric in metric_names:
-            generate_confusion_matrix(dataset_name, classifier_name, nb_iterations=nb_iterations, metric_name=metric)
+            generate_confusion_matrix(code_dataset, classifier, nb_iterations=nb_iterations, metric_name=metric)
 
-    elif classifier_name == Classifier.DT.value:
-        compute_decision_tree(dataset_name, nb_iterations)
-        measure_average_variance(dataset_name, classifier_name)
-        generate_confusion_matrix(dataset_name, classifier_name, nb_iterations)
-
-    else:
-        raise Exception(f'Unknown classifier "{classifier_name}"')
+    elif classifier == Classifier.DT:
+        compute_decision_tree(code_dataset, nb_iterations)
+        measure_average_variance(code_dataset, classifier)
+        generate_confusion_matrix(code_dataset, classifier, nb_iterations)
