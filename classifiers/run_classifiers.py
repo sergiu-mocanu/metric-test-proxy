@@ -17,7 +17,7 @@ from sklearn.linear_model import LogisticRegression
 
 from pathlib import Path
 
-from classifiers.enum import Classifier
+from classifiers.enum import Classifier, classifier_to_title
 from metric_measurement.enum import TextMetric, CodeDataset, metric_to_title
 from pathing import get_path as gp
 
@@ -353,7 +353,7 @@ def generate_confusion_matrix(code_dataset: CodeDataset, classifier: Classifier,
 
     matrix_title += f' ({nb_iterations} iterations)'
 
-    print(f'Generating confusion matrix: {classifier.value} {metric_to_title(metric)}')
+    print(f'Generating confusion matrix: {classifier_to_title(classifier)} {metric_to_title(metric)}')
 
     with open(target_file_path, 'r') as f:
         test_pred_dict = json.load(f)
