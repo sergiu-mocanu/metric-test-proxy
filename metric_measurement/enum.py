@@ -15,21 +15,21 @@ class TextMetric(StrEnum):
     CR = 'crystalbleu'
 
 
-def metric_name_to_title(metric_name: str = None):
+def metric_to_title(metric: TextMetric = None):
     # Function that returns the name of a metric used in the confusion matrix representation
     title = ''
-    match metric_name:
-        case 'bleu':
+    match metric:
+        case TextMetric.BL:
             title = 'BLEU'
-        case 'codebleu':
+        case TextMetric.CB:
             title = 'CodeBLEU'
-        case 'rouge':
+        case TextMetric.RG:
             title = 'ROUGE'
-        case 'meteor':
+        case TextMetric.MT:
             title = 'METEOR'
-        case 'chrf':
+        case TextMetric.CH:
             title = 'ChrF'
-        case 'crystalbleu':
+        case TextMetric.CR:
             title = 'CrystalBLEU'
         case None:
             title = ''

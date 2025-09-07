@@ -5,7 +5,7 @@ import json
 import pandas as pd
 
 from pathing import get_path as gp
-from metric_measurement.enum import CodeDataset, TextMetric, metric_name_to_title
+from metric_measurement.enum import CodeDataset, TextMetric, metric_to_title
 
 import io
 import contextlib
@@ -307,7 +307,7 @@ def full_metric_measurement(code_dataset: CodeDataset):
                 continue
 
             task_name = f'HumanEval_{task_index}'
-            print(f'Measuring {metric_name_to_title(str(metric_name))} metric for task: {task_name}')
+            print(f'Measuring {metric_to_title(str(metric_name))} metric for task: {task_name}')
             task_csv_name = task_name + '.csv'
             task_csv_path = os.path.join(current_metric_path, task_csv_name)
 
