@@ -15,24 +15,13 @@ exp_data_path = os.path.join(project_root_parent, 'metric_exp_data')
 code_path = os.path.join(exp_data_path, 'code')
 exp_results_path = os.path.join(exp_data_path, 'exp_results')
 
-existing_datasets = ['ai_code', 'ai_code_distinct', 'original_results', 'ai_code_validation']
-
-
-def check_existing_dataset(dataset_name):
-    if dataset_name not in existing_datasets:
-        raise ValueError(f'Dataset {dataset_name} does not exist')
-
 
 def get_functionality_test_path(dataset_name):
-    check_existing_dataset(dataset_name)
-
     target_path = os.path.join(exp_results_path, dataset_name, 'functionality_tests')
     return target_path
 
 
 def get_metric_score_path(dataset_name):
-    check_existing_dataset(dataset_name)
-
     target_path = os.path.join(exp_results_path, dataset_name, 'metrics_score')
     return target_path
 
@@ -49,7 +38,6 @@ def get_classification_results_path(dataset_name, classifier_name, iterations=Fa
 
 
 def get_ai_code_path(dataset_name):
-    check_existing_dataset(dataset_name)
     target_path = os.path.join(code_path, dataset_name)
     return target_path
 
