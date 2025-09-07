@@ -4,7 +4,8 @@ import subprocess
 import sys
 
 from pathing import get_path as gp
-from metric_measurement.textual_metrics import code_cleanup, CodeDataset
+from metric_measurement.textual_metrics import code_cleanup
+from metric_measurement.enum import CodeDataset
 
 
 def custom_sort_key(s):
@@ -89,15 +90,15 @@ def execute_test(merged_code):
         return test_result
 
 
-def complete_functionality_test(dataset_name):
+def full_functionality_test(code_dataset: CodeDataset):
     """
     Function that takes the AI-generated implementations and tests their correct functionality against the tests from
     the HumanEval implementation
 
     The result is saved locally in json files
     """
-    ai_code_path = gp.get_ai_code_path(dataset_name)
-    funct_test_path = gp.get_functionality_test_path(dataset_name)
+    ai_code_path = gp.get_ai_code_path(code_dataset)
+    funct_test_path = gp.get_functionality_test_path(code_dataset)
 
     exp_continuation_started = False
 
@@ -206,9 +207,9 @@ def complete_functionality_test(dataset_name):
             exp_continuation_started = True
 
 
-def successful_test_counter(dataset_name):
+def successful_test_counter(code_dataset: CodeDataset):
     # Function that measures the rate of successful tests of the AI-generated code
-    funct_test_path = gp.get_functionality_test_path(dataset_name)
+    funct_test_path = gp.get_functionality_test_path(code_dataset)
 
     total_tests_counter = 0
     failed_tests_counter = 0
