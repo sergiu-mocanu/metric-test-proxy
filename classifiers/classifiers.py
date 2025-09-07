@@ -34,15 +34,6 @@ class Classifier(str, Enum):
     DT = 'decision_tree'
 
 
-class Metric(Enum):
-    bleu = 0
-    codebleu = 1
-    rouge = 2
-    meteor = 3
-    chrf = 4
-    crystalbleu = 5
-
-
 def get_metric_suffix(metric_name):
     if metric_name is None:
         return ''
@@ -446,6 +437,3 @@ def run_full_exp_protocol(dataset_name, classifier_name, nb_iterations=100):
 
     else:
         raise Exception(f'Unknown classifier "{classifier_name}"')
-
-
-display_classification_results('ai_code', Classifier.DT)
