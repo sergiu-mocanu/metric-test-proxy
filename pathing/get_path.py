@@ -1,6 +1,9 @@
 import os
 from pathlib import Path
 
+from metric_measurement.enum import CodeDataset
+from classifiers.enum import Classifier
+
 def find_project_root(marker='requirements.txt'):
     path = Path().resolve()
     for parent in [path] + list(path.parents):
@@ -16,17 +19,22 @@ code_path = os.path.join(exp_data_path, 'code')
 exp_results_path = os.path.join(exp_data_path, 'exp_results')
 
 
-def get_functionality_test_path(dataset_name):
+def get_functionality_test_path(code_dataset: CodeDataset):
+    dataset_name = str(code_dataset.value)
     target_path = os.path.join(exp_results_path, dataset_name, 'functionality_tests')
     return target_path
 
 
-def get_metric_score_path(dataset_name):
+def get_metric_score_path(code_dataset: CodeDataset):
+    dataset_name = str(code_dataset.value)
     target_path = os.path.join(exp_results_path, dataset_name, 'metrics_score')
     return target_path
 
 
-def get_classification_results_path(dataset_name, classifier_name, iterations=False, confusion_matrix=False):
+def get_classification_results_path(code_dataset: CodeDataset, classifier: Classifier, iterations=False, confusion_matrix=False):
+    dataset_name = str(code_dataset.value)
+    classifier_name = str(classifier.value)
+
     classifier_res_path = os.path.join(exp_results_path, dataset_name, classifier_name)
 
     if iterations:
@@ -37,7 +45,8 @@ def get_classification_results_path(dataset_name, classifier_name, iterations=Fa
     return classifier_res_path
 
 
-def get_ai_code_path(dataset_name):
+def get_ai_code_path(code_dataset: CodeDataset):
+    dataset_name = str(code_dataset.value)
     target_path = os.path.join(code_path, dataset_name)
     return target_path
 
