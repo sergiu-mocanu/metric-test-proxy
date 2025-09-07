@@ -18,7 +18,7 @@ from sklearn.linear_model import LogisticRegression
 from pathlib import Path
 
 from classifiers.enum import Classifier
-from metric_measurement.enum import TextMetric, CodeDataset
+from metric_measurement.enum import TextMetric, CodeDataset, metric_name_to_title
 from pathing import get_path as gp
 
 
@@ -34,27 +34,6 @@ def get_metric_suffix(metric_name):
         return ''
     else:
         return f'{metric_name}_'
-
-
-def metric_name_to_title(metric_name):
-    # Function that returns the name of a metric used in the confusion matrix representation
-    title = ''
-    match metric_name:
-        case 'bleu':
-            title = 'BLEU'
-        case 'codebleu':
-            title = 'CodeBLEU'
-        case 'rouge':
-            title = 'ROUGE'
-        case 'meteor':
-            title = 'METEOR'
-        case 'chrf':
-            title = 'ChrF'
-        case 'crystalbleu':
-            title = 'CrystalBLEU'
-        case None:
-            title = 'DecisionTree'
-    return title
 
 
 def prepare_x_y(code_dataset: CodeDataset, list_metrics):
@@ -304,7 +283,7 @@ def display_classification_results(code_dataset: CodeDataset, classifier: Classi
         list_metrics = [target_metric]
 
     for metric in list_metrics:
-        metric_title = metric_name_to_title(metric)
+        metric_title = metric_name_to_title(str(metric))
         classification_results_folder = gp.get_classification_results_path(code_dataset, classifier,
                                                                            iterations=iterations)
 
@@ -366,13 +345,13 @@ def generate_confusion_matrix(code_dataset: CodeDataset, classifier: Classifier,
 
     matrix_file_path = os.path.join(matrix_folder_path, file_name)
 
-    matrix_title = metric_name_to_title(metric_name)
+    if classifier == Classifier.LR:
+        matrix_title = metric_name_to_title(metric_name)
+    else:
+        matrix_title = 'Decision Tree'
     matrix_title += f' ({nb_iterations} iterations)'
 
-    if metric_name is None:
-        metric_name = ''
-
-    print(f'Generating confusion matrix for metric: {metric_name_to_title(metric_name)} {classifier.value}')
+    print(f'Generating confusion matrix: {classifier.value} {metric_name_to_title(metric_name)}')
 
     with open(target_file_path, 'r') as f:
         test_pred_dict = json.load(f)
