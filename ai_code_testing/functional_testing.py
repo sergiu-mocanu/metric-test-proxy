@@ -106,7 +106,10 @@ def execute_test(merged_code: str) -> dict:
 
 
 def full_functionality_test(code_dataset: CodeDataset):
-    """Iterate over all AI-generated scripts, merge with humaneval tests and execute in an isolated subprocess."""
+    """Iterate over all AI-generated scripts, merge with humaneval tests and execute in an isolated subprocess.
+
+    The results are written to JSON files in the output directory.
+    """
     ai_code_path = gp.get_ai_code_path(code_dataset)
     funct_test_path = gp.get_functionality_test_path(code_dataset)
 
