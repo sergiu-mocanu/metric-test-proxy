@@ -327,14 +327,13 @@ def display_classification_results(code_dataset: CodeDataset, classifier: Classi
             exit(0)
 
 
-# TODO: rename `dt_res_path` to `classification_res_dir`
 def generate_confusion_matrix(code_dataset: CodeDataset, classifier: Classifier, nb_iterations, metric: TextMetric=None,
                               font_size=14):
     # Generate the confusion matrix based on the ground truth and predicted labels of pass/fail
-    dt_res_path = gp.get_classification_results_path(code_dataset, classifier, iterations=True)
+    classification_res_dir = gp.get_classification_results_path(code_dataset, classifier, iterations=True)
     metric_suffix = get_metric_suffix(metric)
     target_file_name = metric_suffix + test_pred_file_name
-    target_file_path = os.path.join(dt_res_path, target_file_name)
+    target_file_path = os.path.join(classification_res_dir, target_file_name)
 
     matrix_folder_path = gp.get_classification_results_path(code_dataset, classifier, confusion_matrix=True)
     os.makedirs(matrix_folder_path, exist_ok=True)
@@ -397,14 +396,22 @@ def generate_confusion_matrix(code_dataset: CodeDataset, classifier: Classifier,
     plt.close(fig)
 
 
-def run_full_exp_protocol(code_dataset: CodeDataset, classifier: Classifier, nb_iterations=100):
-    if classifier == Classifier.LR:
-        compute_logistic_regression(code_dataset, nb_iterations)
-        measure_average_variance(code_dataset, classifier)
-        for metric in TextMetric:
-            generate_confusion_matrix(code_dataset, classifier, nb_iterations=nb_iterations, metric=metric)
+def run_full_classification(code_dataset: CodeDataset, classifier: Classifier=None, nb_iterations=100):
+    if classifier is None:
+        classifiers = [e for e in Classifier]
+    else:
+        classifiers = [classifier]
 
-    elif classifier == Classifier.DT:
-        compute_decision_tree(code_dataset, nb_iterations)
-        measure_average_variance(code_dataset, classifier)
-        generate_confusion_matrix(code_dataset, classifier, nb_iterations)
+    for current_classifier in classifiers:
+        if current_classifier == Classifier.LR:
+            compute_logistic_regression(code_dataset, nb_iterations)
+            measure_average_variance(code_dataset, current_classifier)
+            for metric in TextMetric:
+                generate_confusion_matrix(code_dataset, current_classifier, nb_iterations=nb_iterations, metric=metric)
+            print('\n' + '/' * 80)
+
+        elif current_classifier == Classifier.DT:
+            compute_decision_tree(code_dataset, nb_iterations)
+            measure_average_variance(code_dataset, current_classifier)
+            generate_confusion_matrix(code_dataset, current_classifier, nb_iterations)
+            print('\n' + '/' * 80)
