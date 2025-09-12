@@ -31,7 +31,8 @@ def get_metric_score_path(code_dataset: CodeDataset):
     return target_path
 
 
-def get_classification_results_path(code_dataset: CodeDataset, classifier: Classifier, iterations=False, confusion_matrix=False):
+def get_classification_results_path(code_dataset: CodeDataset, classifier: Classifier, iterations=False,
+                                    confusion_matrix=False):
     dataset_name = str(code_dataset.value)
     classifier_name = str(classifier.value)
 
