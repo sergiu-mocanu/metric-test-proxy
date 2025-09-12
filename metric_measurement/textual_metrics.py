@@ -24,11 +24,13 @@ from nltk.util import ngrams
 from crystalbleu import corpus_bleu
 
 ##################### CrystalBLEU #####################
-def tokenize(raw_string):
+def tokenize(raw_string: str) -> list[str]:
+    """Tokenize input code into a list of tokens."""
     return re.findall(r"\w+|[^\w\s]", raw_string)
 
 
 def get_python_corpus():
+    """Load and tokenize the Python corpus from CrystalBLEU dataset."""
     corpus_path = gp.get_python_corpus_path()
     with open(corpus_path) as f:
         python_corpus = f.read()
@@ -37,8 +39,8 @@ def get_python_corpus():
     return tokenized_corpus
 
 
-def extract_shared_ngrams(corpus):
-    k = 500
+def extract_shared_ngrams(corpus: list[str], k: int=500) -> dict[str, int]:
+    """Extract the most common ngrams of size 1 to 4 from the corpus."""
     all_ngrams = []
     for n in range(1, 5):
         all_ngrams.extend(list(ngrams(corpus, n)))
@@ -50,7 +52,11 @@ def extract_shared_ngrams(corpus):
 #######################################################
 # noinspection PyUnusedLocal
 def timeout_handler(signum, frame):
-    # Custom TimeOut exception used in 'test_functionality()' function
+    """Custom TimeOut exception used during CodeBLEU metric measurement.
+
+    Due to CodeBLEU analyzing the AST of the input code, some AI-generated scripts with repetitive instructions lead
+    to stack overflow during the metric measurement. The timeout limit avoids any undesired crashes.
+    """
     raise TimeoutError('Execution timeout!')
 
 
@@ -58,15 +64,16 @@ def timeout_handler(signum, frame):
 signal.signal(signal.SIGALRM, timeout_handler)
 
 
-def custom_sort_key(s):
-    # A sorting key used to sort strings in a length-lexicographic order (length and alphabetical order)
+def custom_sort_key(s: str) -> tuple[int, str]:
+    """Return a sort key for strings using length-lexicographic order.
+
+    Used for ordering project's folders and files.
+    """
     return len(s), s
 
 
-def code_cleanup(script, remove_assert=False, remove_exit=False):
-    # Function that removes any unnecessary components of a given script (comments & tests), leaving only the code lines
-
-    # Removing the test component of HumanEval implementation following 'METADATA' information
+def code_cleanup(script: str, remove_assert: bool=False, remove_exit: bool=False) -> str:
+    """Remove unnecessary components of a script (e.g., comments, assert statements)."""
     if 'METADATA' in script:
         script = script.split('METADATA', 1)[0]
     elif 'def check(candidate)' in script:
@@ -82,7 +89,7 @@ def code_cleanup(script, remove_assert=False, remove_exit=False):
 
     for index, line in enumerate(script_lines):
 
-        # Indexing any assert statement
+        # Index all assert statements
         if remove_assert and 'assert' in line:
             line_elements = tokenize(line)
             if line_elements[0] == 'assert':
@@ -95,72 +102,74 @@ def code_cleanup(script, remove_assert=False, remove_exit=False):
 
         if not multi_line_comment:
             if '#' in line:
-                # Indexing single-line comments
+                # Index single-line comments
                 if line.strip()[0] == '#':
                     comment_index.append(index)
-                # Removing comment component of the line
+                # Remove in-line comment component
                 else:
                     cleaned_up_line = line.split('#', 1)[0]
                     script_lines[index] = cleaned_up_line
                 continue
 
-            # Indexing the first line of multi-line comments
+            # Index the first line of multi-line comments
             if '"""' in line or "'''" in line:
                 comment_index.append(index)
                 if line.count('"""') == 1 or line.count("'''") == 1:
                     multi_line_comment = True
                 continue
 
-        # Adding indexes for multi-line comments
+        # Add indexes for multi-line comments
         if multi_line_comment and ('"""' not in line and "'''" not in line):
             comment_index.append(index)
             continue
 
-        # Indexing the last line of multi-line comments
+        # Index the last line of multi-line comments
         if multi_line_comment and ('"""' in line or "'''" in line):
             multi_line_comment = False
             comment_index.append(index)
             continue
 
-        # Indexing new lines and blank lines
+        # Index blank lines
         if len(line) == 0 or line.isspace():
             empty_line_index.append(index)
             continue
 
-    # Merging indexes for comments, empty lines and assert statements
+    # Merge indexes for comments, empty lines, assert and exit statements
     [comment_index.extend(indexes) for indexes in (empty_line_index, assert_index, exit_line_index)]
 
-    # Removing all the unnecessary parts of code
+    # Remove all the unnecessary script components
     for index in sorted(comment_index, reverse=True):
         del script_lines[index]
 
-    # Concatenating the list of script lines
     clean_script = '\n'.join(script_lines)
     return clean_script
 
 
-def list_non_hidden_files(dir_path):
-    # Function that returns the list of visible files from a given directory
+def list_non_hidden_files(dir_path: str) -> list[str]:
+    """Return a list of all non-hidden files in a directory."""
     return [f for f in os.listdir(dir_path) if not f.startswith('.')]
 
 
-# TODO: update the docstring with the new `metric` datatype
-def calculate_metric(metric, baseline, generated_script, metric_calc=None, shared_ngrams=None):
+def calculate_metric(metric: TextMetric, baseline_script: str, generated_script: str, metric_calc=None,
+                     shared_ngrams: dict[str, int]=None) -> dict | float:
     """
-    Function that measures the LLM-script score of a given metric against the HumanEval implementation
+    Measure the textual-similarity metric score between an AI-generated script and the humaneval baseline.
 
-    :param metric: integer that represents the desired metric to be used
-    :param baseline: HumanEval script
-    :param generated_script: LLM-generated script
-    :param metric_calc: preloaded metric module
-    :param shared_ngrams: dictionary of most common ngrams used for CrystalBLEU score measurement
-    :return: metric score
+    Args:
+        metric (TextMetric): textual-similarity metric
+        baseline_script (str): humaneval baseline script
+        generated_script (str): AI-generated script
+        metric_calc: preloaded textual metric module
+        shared_ngrams (dict[str, int]): dictionary of most common ngrams used for CrystalBLEU metric measurement
+
+    Returns:
+        A dictionary containing the textual similarity score.
     """
     score = {}
 
     if not generated_script:
-        if metric != TextMetric.CB.value:
-            return 0
+        if metric != TextMetric.CB:
+            return 0.0
         else:
             return {"codebleu": 0.0,
                     "ngram_match_score": 0.0,
@@ -168,12 +177,12 @@ def calculate_metric(metric, baseline, generated_script, metric_calc=None, share
                     "syntax_match_score": 0.0,
                     "dataflow_match_score": 0.0}
 
-    if metric == TextMetric.CB.value:
+    if metric == TextMetric.CB:
         metric_complete = False
         signal.alarm(2)
         while not metric_complete:
             try:
-                score = calc_codebleu(predictions=[generated_script], references=[baseline], lang='python')
+                score = calc_codebleu(predictions=[generated_script], references=[baseline_script], lang='python')
                 signal.alarm(0)
                 metric_complete = True
             except TimeoutError:
@@ -181,33 +190,39 @@ def calculate_metric(metric, baseline, generated_script, metric_calc=None, share
                 signal.alarm(2)
 
     else:
-        if metric == TextMetric.RG.value:
-            results = metric_calc.compute(predictions=[generated_script], references=[baseline], rouge_types=['rougeL'])
-        elif metric == TextMetric.CR.value:
-            tokenized_baseline = tokenize(baseline)
+        if metric == TextMetric.RG:
+            results = metric_calc.compute(predictions=[generated_script], references=[baseline_script],
+                                          rouge_types=['rougeL'])
+
+        elif metric == TextMetric.CR:
+            tokenized_baseline = tokenize(baseline_script)
             tokenized_generated_script = tokenize(generated_script)
             results = corpus_bleu([[tokenized_baseline]], [tokenized_generated_script],
                                   ignoring=shared_ngrams)
-        else:
-            results = metric_calc.compute(predictions=[generated_script], references=[baseline])
 
-        if metric == TextMetric.RG.value:
+        else:
+            results = metric_calc.compute(predictions=[generated_script], references=[baseline_script])
+
+        metric_name = metric.value
+
+        if metric == TextMetric.RG:
             score = results['rougeL'].item()
-        elif metric == TextMetric.MT.value:
-            score = results[metric].item()
-        elif metric == TextMetric.CH.value:
+        elif metric == TextMetric.MT:
+            score = results[metric_name].item()
+        elif metric == TextMetric.CH:
             score = results['score'] / 100
-        elif metric == TextMetric.CR.value:
+        elif metric == TextMetric.CR:
             score = results
         else:
-            score = results[metric]
+            score = results[metric_name]
     return score
 
 
 def full_metric_measurement(code_dataset: CodeDataset):
-    """
-    Function that iterates over the LLM-generated scripts and measures the metric score all the studied metrics
-    :return: writes a csv file with the obtained score as well as pass/fail label for each AI-script
+    """Iterate over the dataset of AI-generated scripts and measure the textual-similarity score with the according
+    humaneval baseline.
+
+    The results are written to CSV files in the output directory.
     """
     ai_code_path = gp.get_ai_code_path(code_dataset)
     metric_folder_path = gp.get_metric_score_path(code_dataset)
@@ -225,8 +240,8 @@ def full_metric_measurement(code_dataset: CodeDataset):
         metric_file_exists = False
         script_starting_index = model_and_temp_starting_index = task_starting_index = metric_starting_index = 0
 
+    # Obtain the starting point of exp-resumption
     else:
-        # Obtaining the starting point of exp-resumption
         metric_file_exists = True
 
         list_dir = os.listdir(metric_folder_path)
@@ -245,8 +260,8 @@ def full_metric_measurement(code_dataset: CodeDataset):
         current_task_path = os.path.join(last_tested_metric_path, task_csv_name)
         task_metric_df = pd.read_csv(current_task_path)
 
+        # Skip to the next task if current task was complete in the previous exp
         if 'complete' in list_tested_tasks[0]:
-            # Skipping to the next task if current task was complete in the previous exp
             task_starting_index += 1
 
             if task_starting_index == 163:
@@ -281,16 +296,16 @@ def full_metric_measurement(code_dataset: CodeDataset):
 
     for metric_index in range(metric_starting_index, len(list_metrics)):
         current_metric = list_metrics[metric_index]
-        metric_name = current_metric.value
+        metric_name = str(current_metric.value)
 
         target_folder_name = f'{metric_name}_tasks'
         current_metric_path = os.path.join(metric_folder_path, target_folder_name)
         if not os.path.exists(current_metric_path):
             os.mkdir(current_metric_path)
 
-        # Preloading metric module for all metrics except CodeBLEU
+        # Preload external textual-metric module for all metrics except CodeBLEU and CrystalBLEU
         if current_metric != TextMetric.CB and current_metric != TextMetric.CR:
-            metric_calc = ev.load(str(metric_name))
+            metric_calc = ev.load(metric_name)
             shared_ngrams = None
 
         elif current_metric == TextMetric.CR:
@@ -307,7 +322,7 @@ def full_metric_measurement(code_dataset: CodeDataset):
                 continue
 
             task_name = f'HumanEval_{task_index}'
-            print(f'Measuring {metric_to_title(str(metric_name))} metric for task: {task_name}')
+            print(f'Measuring {metric_to_title(current_metric)} metric for task: {task_name}')
             task_csv_name = task_name + '.csv'
             task_csv_path = os.path.join(current_metric_path, task_csv_name)
 
@@ -317,7 +332,7 @@ def full_metric_measurement(code_dataset: CodeDataset):
             else:
                 task_metric = []
 
-            # Obtaining the HumanEval implementation as a comparison baseline
+            # Get the humaneval baseline implementation
             target_humaneval = humaneval_scripts[task_index]
             target_humaneval_path = os.path.join(humaneval_baseline_path, target_humaneval)
             humaneval_content = open(target_humaneval_path, 'r').read()
@@ -333,7 +348,7 @@ def full_metric_measurement(code_dataset: CodeDataset):
                 model_name = target_model_and_temp.split('_temp')[0]
                 model_temp = target_model_and_temp[-8:]
 
-                # Loading the functionality-test results for the current model/temp/task (used for the pass/fail label)
+                # Load the functional test results of the AI-generated code
                 target_functionality_test = os.path.join(functionality_test_path, model_name, model_temp,
                                                          f'{task_name}.json')
                 with open(target_functionality_test, 'r') as f:
@@ -345,15 +360,14 @@ def full_metric_measurement(code_dataset: CodeDataset):
                 list_scripts = sorted(os.listdir(scripts_folder), key=custom_sort_key)
 
                 for script_file in list_scripts[script_starting_index:]:
-                    # Extracting and cleaning the LLM-generated script
+                    # Extract and clean the AI-generated script
                     target_script_path = os.path.join(target_model_and_temp_path, task_name, script_file)
                     script_content = open(target_script_path).read()
                     cleaned_script = code_cleanup(script_content)
 
                     script_test_pass = funct_test_results[script_file]['successful']
 
-                    # Measuring the metric score of the current script
-                    score = calculate_metric(metric_name, humaneval_script, cleaned_script, metric_calc, shared_ngrams)
+                    score = calculate_metric(current_metric, humaneval_script, cleaned_script, metric_calc, shared_ngrams)
                     dict_entry = {'model&temp': target_model_and_temp,
                                   'script': script_file,
                                   'pass': script_test_pass}
@@ -370,21 +384,21 @@ def full_metric_measurement(code_dataset: CodeDataset):
                         dict_entry.update(entry_addition)
                     task_metric.append(dict_entry)
 
-                    # Writing the results in a csv file every 100 iterations
+                    # Write the results in a csv file every 100 iterations
                     file_write_counter -= 1
                     if script_file == list_scripts[-1]:
                         task_metric_df = pd.DataFrame.from_records(task_metric)
                         task_metric_df.to_csv(task_csv_path, index=False)
                         file_write_counter = 100
 
-                # Experiment resumption mechanism (i.e., reinitializing the starting index after re-launching the exp)
+                # Experiment resumption mechanism (i.e., reinitialize the starting index)
                 if metric_file_exists and not exp_continuation_started:
                     script_starting_index = 0
 
             if metric_file_exists and not exp_continuation_started:
                 model_and_temp_starting_index = 0
 
-            # Marking the resulting csv file as complete
+            # Mark the resulting csv file as complete
             if os.path.exists(task_csv_path):
                 os.remove(task_csv_path)
 
@@ -402,6 +416,11 @@ def full_metric_measurement(code_dataset: CodeDataset):
 
 
 def merge_metrics_results(code_dataset: CodeDataset):
+    """Merge the textual-similarity score files into one single CSV file. The results are initially separated per
+    humaneval task and textual metric. The merge is done per textual metric.
+
+    The results are written to CSV files in the output directory.
+    """
     metric_results_path = gp.get_metric_score_path(code_dataset)
     for item in sorted(os.listdir(metric_results_path)):
         current_item_path = os.path.join(metric_results_path, item)

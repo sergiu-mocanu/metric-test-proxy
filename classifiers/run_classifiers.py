@@ -1,6 +1,8 @@
 import copy
 import os
 import json
+from typing import LiteralString
+
 import numpy as np
 import pandas as pd
 from datetime import datetime
@@ -24,22 +26,18 @@ from pathing import get_path as gp
 
 test_pred_file_name = 'test_pred.json'
 precision_recall_file_name = 'precision_recall.json'
-avg_var_file_name = 'avg_var.json'
+avg_var_file_name = 'avg_mad.json'
 
 
-def get_metric_suffix(metric_name: str):
-    if metric_name is None:
+def get_metric_suffix(metric: TextMetric):
+    if metric is None:
         return ''
     else:
-        return f'{metric_name}_'
+        return f'{metric}_'
 
 
 def prepare_x_y(code_dataset: CodeDataset, list_metrics: list[TextMetric]):
-    """
-    Function that runs logistic regression over the LLM-generated script results (i.e., establish if a correlation
-    exists between metric score and pass/fail label)
-    :return: a json file with scores for precision, recall, f1, accuracy
-    """
+    """Load the textual-similarity score and the functional test results into train and test sets."""
     metric_res_folder_path = gp.get_metric_score_path(code_dataset)
 
     x = pd.DataFrame()
@@ -65,10 +63,21 @@ def prepare_x_y(code_dataset: CodeDataset, list_metrics: list[TextMetric]):
     return x, y
 
 
-def train_test_classifier(classifier, x, y, classification_results_dict, test_pred_dict, nb_iterations):
+def train_test_classifier(classifier, x, y, classification_results, test_predictions, nb_iterations):
+    """Run `nb_iterations` iterations of classifier training and testing with different splits of train/test datasets.
+
+    Args:
+        classifier: preloaded scikit-learn classifier module
+        x (DataFrame): training data (i.e., textual-similarity score)
+        y (DataFrame): training labels (i.e., pass/fail label)
+        classification_results (dict): dictionary of classification results
+        test_predictions (dict): dictionary of test predictions
+        nb_iterations (int): number of iterations to run from scratch
+
+    The results are written in `classification_results` and `test_predictions`.
+    """
     start = datetime.now()
 
-    # Run nb_iterations iterations of classifier training and testing with different split of train/test datasets
     for i in range(nb_iterations):
         if i % 10 == 0 or i == nb_iterations - 1:
             print(f'Iteration {i + 1}')
@@ -78,12 +87,12 @@ def train_test_classifier(classifier, x, y, classification_results_dict, test_pr
         classifier.fit(x_train, y_train)
         y_pred = classifier.predict(x_test)
 
-        classification_results = classification_report(y_test, y_pred, target_names=['fail', 'pass'], output_dict=True)
+        class_report = classification_report(y_test, y_pred, target_names=['fail', 'pass'], output_dict=True)
 
-        classification_results_dict[f'iter_{i+1}'] = classification_results
-        test_pred_dict[f'iter_{i+1}'] = {}
-        test_pred_dict[f'iter_{i+1}']['y_test'] = y_test.tolist()
-        test_pred_dict[f'iter_{i+1}']['y_pred'] = y_pred.tolist()
+        classification_results[f'iter_{i+1}'] = class_report
+        test_predictions[f'iter_{i+1}'] = {}
+        test_predictions[f'iter_{i+1}']['y_test'] = y_test.tolist()
+        test_predictions[f'iter_{i+1}']['y_pred'] = y_pred.tolist()
 
     end = datetime.now()
     training_time = end - start
@@ -91,26 +100,32 @@ def train_test_classifier(classifier, x, y, classification_results_dict, test_pr
     print('_' * 80)
 
 
-def save_classification_results(classification_results_dict, test_pred_dict, results_folder_path,
+def save_classification_results(classification_results: dict, test_predictions: dict, results_dir_path: str,
                                 metric: TextMetric=None):
+    """Save classification results to JSON files.
+
+    Args:
+        classification_results (dict): dictionary of classification results (precision, recall, f1_score, accuracy)
+        test_predictions (dict): dictionary of predictions made during model testing (pass/fail)
+        results_dir_path (str): path to save classification results
+        metric (TextMetric): target textual metric
+    """
     metric_suffix = get_metric_suffix(metric)
     current_p_r_name = metric_suffix + precision_recall_file_name
     current_t_p_name = metric_suffix + test_pred_file_name
 
-    precision_recall_file_path = os.path.join(results_folder_path, current_p_r_name)
-    test_pred_file_path = os.path.join(results_folder_path, current_t_p_name)
+    precision_recall_file_path = os.path.join(results_dir_path, current_p_r_name)
+    test_pred_file_path = os.path.join(results_dir_path, current_t_p_name)
 
     with open(precision_recall_file_path, 'w') as f:
-        json.dump(classification_results_dict, f)
+        json.dump(classification_results, f)
     with open(test_pred_file_path, 'w') as f:
-        json.dump(test_pred_dict, f)
+        json.dump(test_predictions, f)
 
 
-def compute_logistic_regression(code_dataset: CodeDataset, nb_iterations):
-    """
-    Function that runs logistic regression over the LLM-generated script results (i.e., establish if a correlation
-    exists between metric score and pass/fail label)
-    :return: a json file with scores for precision, recall, f1, accuracy
+def compute_logistic_regression(code_dataset: CodeDataset, nb_iterations: int):
+    """Run logistic regression classification separately on each textual-similarity metric.
+    Each iteration is executed from scratch in order to avoid model overfitting.
     """
     logreg_iterations_folder = gp.get_classification_results_path(code_dataset, Classifier.LR, iterations=True)
 
@@ -130,7 +145,10 @@ def compute_logistic_regression(code_dataset: CodeDataset, nb_iterations):
         save_classification_results(classification_results, test_pred, logreg_iterations_folder, metric)
 
 
-def compute_decision_tree(code_dataset: CodeDataset, nb_iterations):
+def compute_decision_tree(code_dataset: CodeDataset, nb_iterations: int):
+    """Run decision tree classification on all textual-similarity metrics.
+    Each iteration is executed from scratch in order to avoid model overfitting.
+    """
     print('Computing Decision Tree with all textual metrics')
     dt_iterations_folder = gp.get_classification_results_path(code_dataset, Classifier.DT, iterations=True)
 
@@ -149,8 +167,11 @@ def compute_decision_tree(code_dataset: CodeDataset, nb_iterations):
     save_classification_results(classification_results, test_pred, dt_iterations_folder)
 
 
-def divide_by(input_dict, value):
-    # Function that divides the obtained scores for the average calculation
+def divide_by(input_dict: dict, value: int):
+    """Divide the input dictionary elements by a certain value.
+
+    The results are written in `input_dict`.
+    """
     input_dict['pass']['precision'] /= value
     input_dict['pass']['recall'] /= value
     input_dict['pass']['f1-score'] /= value
@@ -170,7 +191,8 @@ def divide_by(input_dict, value):
     input_dict['weighted avg']['f1-score'] /= value
 
 
-def avg_var(logreg_res):
+def avg_mad(classification_res: dict) -> dict:
+    """Measure the average and the mean absolute deviation of classification results."""
     classification_metrics_template = {'precision': 0.0, 'recall': 0.0, 'f1-score': 0.0, 'support': 0}
     global_template = {'pass': copy.deepcopy(classification_metrics_template),
                        'fail': copy.deepcopy(classification_metrics_template),
@@ -178,44 +200,44 @@ def avg_var(logreg_res):
                        'macro avg': copy.deepcopy(classification_metrics_template),
                        'weighted avg': copy.deepcopy(classification_metrics_template)}
 
-    avg_var_dict = {
-        'average': copy.deepcopy(global_template),
-        'variance': copy.deepcopy(global_template)}
+    avg_mad_dict = {
+        'avg': copy.deepcopy(global_template),
+        'mad': copy.deepcopy(global_template)}
 
     prediction_metrics = ['precision', 'recall', 'f1-score', 'support']
     prediction_labels = ['pass', 'fail', 'macro avg', 'weighted avg']
     iterations_counter = 0
 
-    for iteration in list(logreg_res.keys()):
+    for iteration in list(classification_res.keys()):
         iterations_counter += 1
 
         for pred_metric in prediction_metrics:
             for label in prediction_labels:
-                avg_var_dict['average'][label][pred_metric] += logreg_res[iteration][label][pred_metric]
+                avg_mad_dict['avg'][label][pred_metric] += classification_res[iteration][label][pred_metric]
 
-        avg_var_dict['average']['accuracy'] += logreg_res[iteration]['accuracy']
+        avg_mad_dict['avg']['accuracy'] += classification_res[iteration]['accuracy']
 
-    divide_by(avg_var_dict['average'], iterations_counter)
+    divide_by(avg_mad_dict['avg'], iterations_counter)
 
-    for iteration in list(logreg_res.keys()):
+    for iteration in list(classification_res.keys()):
         for pred_metric in prediction_metrics[:-1]:
             for label in prediction_labels:
 
-                avg_var_dict['variance'][label][pred_metric] += abs(
-                    avg_var_dict['average'][label][pred_metric] - logreg_res[iteration][label][pred_metric])
+                avg_mad_dict['mad'][label][pred_metric] += abs(
+                    avg_mad_dict['avg'][label][pred_metric] - classification_res[iteration][label][pred_metric])
 
-                avg_var_dict['variance'][label]['support'] = avg_var_dict['average'][label]['support']
+                avg_mad_dict['mad'][label]['support'] = avg_mad_dict['avg'][label]['support']
 
-        avg_var_dict['variance']['accuracy'] += abs(
-            avg_var_dict['average']['accuracy'] - logreg_res[iteration]['accuracy'])
+        avg_mad_dict['mad']['accuracy'] += abs(
+            avg_mad_dict['avg']['accuracy'] - classification_res[iteration]['accuracy'])
 
-    divide_by(avg_var_dict['variance'], iterations_counter)
+    divide_by(avg_mad_dict['mad'], iterations_counter)
 
-    return avg_var_dict
+    return avg_mad_dict
 
 
-def measure_average_variance(code_dataset: CodeDataset, classifier: Classifier):
-    # Function that measures the average and variance values of the 100 logreg-iteration results
+def measure_average_meandev(code_dataset: CodeDataset, classifier: Classifier):
+    """Measure the average and the mean absolute deviation of classification results per code dataset and classifier."""
     iteration_results_folder = gp.get_classification_results_path(code_dataset, classifier, iterations=True)
 
     for file_name in sorted(os.listdir(iteration_results_folder)):
@@ -224,20 +246,21 @@ def measure_average_variance(code_dataset: CodeDataset, classifier: Classifier):
             with open(current_file_path, 'r') as f:
                 logreg_dict = json.load(f)
 
-            metric_name = next((metric.value for metric in TextMetric if file_name.startswith(str(metric.value))), None)
-            metric_suffix = get_metric_suffix(str(metric_name))
+            metric = next((metric for metric in TextMetric if file_name.startswith(str(metric.value))), None)
+            metric_suffix = get_metric_suffix(metric)
             current_avg_var_name = metric_suffix + avg_var_file_name
 
             parent_folder = Path(iteration_results_folder).parent
             avg_var_file_path = os.path.join(parent_folder, current_avg_var_name)
 
-            avg_var_dict = avg_var(logreg_dict)
+            avg_mad_dict = avg_mad(logreg_dict)
 
             with open(avg_var_file_path, 'w') as f:
-                json.dump(avg_var_dict, f)
+                json.dump(avg_mad_dict, f)
 
 
-def format_logreg_results(logreg_dict, first_entry):
+def format_classification_results(classification_res: dict, first_entry: bool) -> LiteralString:
+    """Structure the classification results into a display-friendly format."""
     if first_entry:
         row_format = '{:<12} {:>10.2f} {:>10.2f} {:>10.2f} {:>10}'
         row_format_accuracy = '{:<33}  {:>10.2f} {:>10}'
@@ -250,26 +273,26 @@ def format_logreg_results(logreg_dict, first_entry):
     for label in ['pass', 'fail']:
         row = row_format.format(
             label,
-            logreg_dict[label]['precision'],
-            logreg_dict[label]['recall'],
-            logreg_dict[label]['f1-score'],
-            int(logreg_dict[label]['support'])
+            classification_res[label]['precision'],
+            classification_res[label]['recall'],
+            classification_res[label]['f1-score'],
+            int(classification_res[label]['support'])
         )
         formated_rows.append(row)
 
     accuracy_row = row_format_accuracy.format(
         'accuracy',
-        logreg_dict['accuracy'],
-        int(logreg_dict['pass']['support'] + logreg_dict['fail']['support'])
+        classification_res['accuracy'],
+        int(classification_res['pass']['support'] + classification_res['fail']['support'])
     )
 
     for avg_label in ['macro avg', 'weighted avg']:
         avg_row = row_format.format(
             avg_label,
-            logreg_dict[avg_label]['precision'],
-            logreg_dict[avg_label]['recall'],
-            logreg_dict[avg_label]['f1-score'],
-            int(logreg_dict[avg_label]['support'])
+            classification_res[avg_label]['precision'],
+            classification_res[avg_label]['recall'],
+            classification_res[avg_label]['f1-score'],
+            int(classification_res[avg_label]['support'])
         )
         formated_rows.append(avg_row)
     formated_rows.insert(2, f'\n{accuracy_row}')
@@ -277,7 +300,8 @@ def format_logreg_results(logreg_dict, first_entry):
 
 
 def display_classification_results(code_dataset: CodeDataset, classifier: Classifier, target_metric: TextMetric=None,
-                                   iterations=False, num_iterations=5):
+                                   iterations: bool=False, num_iterations: int=5):
+    """Display the classification results per code dataset and classifier."""
     if target_metric is None:
         list_metrics = [metric for metric in TextMetric]
     else:
@@ -309,14 +333,15 @@ def display_classification_results(code_dataset: CodeDataset, classifier: Classi
         first_entry = True
 
         if classifier == Classifier.LR:
-            print(f'\nLogistic Regression classification results for \"{metric_title}\" metric (average and variance):\n')
+            print(f'\nLogistic Regression classification results for \"{metric_title}\" metric (average and mean '
+                  f'absolute deviation):\n')
         else:
-            print(f'\nDecision Tree classification results (average and variance):\n')
+            print(f'\nDecision Tree classification results (average and mean absolute deviation):\n')
 
         for key in list(logreg_dict.keys()):
             print(f'{key}:')
             print(f"{' ':<12} {'precision':>10} {'recall':>10} {'f1-score':>10} {'support':>10}")
-            print(format_logreg_results(logreg_dict[key], first_entry))
+            print(format_classification_results(logreg_dict[key], first_entry))
 
             if first_entry:
                 print('\n' + '-' * 60 + '\n')
@@ -327,9 +352,12 @@ def display_classification_results(code_dataset: CodeDataset, classifier: Classi
             exit(0)
 
 
-def generate_confusion_matrix(code_dataset: CodeDataset, classifier: Classifier, nb_iterations, metric: TextMetric=None,
-                              font_size=14):
-    # Generate the confusion matrix based on the ground truth and predicted labels of pass/fail
+def generate_confusion_matrix(code_dataset: CodeDataset, classifier: Classifier, nb_iterations: int,
+                              metric: TextMetric=None, font_size=14):
+    """Generate a confusion matrix for the classification results per code dataset and classifier.
+
+    The image is saved to a PNG format in the output directory.
+    """
     classification_res_dir = gp.get_classification_results_path(code_dataset, classifier, iterations=True)
     metric_suffix = get_metric_suffix(metric)
     target_file_name = metric_suffix + test_pred_file_name
@@ -396,7 +424,8 @@ def generate_confusion_matrix(code_dataset: CodeDataset, classifier: Classifier,
     plt.close(fig)
 
 
-def run_full_classification(code_dataset: CodeDataset, classifier: Classifier=None, nb_iterations=100):
+def run_full_classification(code_dataset: CodeDataset, classifier: Classifier=None, nb_iterations: int=100,
+                            console_display: bool=True):
     if classifier is None:
         classifiers = [e for e in Classifier]
     else:
@@ -405,13 +434,14 @@ def run_full_classification(code_dataset: CodeDataset, classifier: Classifier=No
     for current_classifier in classifiers:
         if current_classifier == Classifier.LR:
             compute_logistic_regression(code_dataset, nb_iterations)
-            measure_average_variance(code_dataset, current_classifier)
+            measure_average_meandev(code_dataset, current_classifier)
             for metric in TextMetric:
                 generate_confusion_matrix(code_dataset, current_classifier, nb_iterations=nb_iterations, metric=metric)
-            print('\n' + '/' * 80)
 
         elif current_classifier == Classifier.DT:
             compute_decision_tree(code_dataset, nb_iterations)
-            measure_average_variance(code_dataset, current_classifier)
+            measure_average_meandev(code_dataset, current_classifier)
             generate_confusion_matrix(code_dataset, current_classifier, nb_iterations)
-            print('\n' + '/' * 80)
+
+        if console_display:
+            display_classification_results(code_dataset, current_classifier)
