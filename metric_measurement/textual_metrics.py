@@ -72,7 +72,7 @@ def custom_sort_key(s: str) -> tuple[int, str]:
     return len(s), s
 
 
-def code_cleanup(script: str, remove_assert=False, remove_exit=False) -> str:
+def code_cleanup(script: str, remove_assert: bool=False, remove_exit: bool=False) -> str:
     """Remove unnecessary components of a script (e.g., comments, assert statements)."""
     if 'METADATA' in script:
         script = script.split('METADATA', 1)[0]
