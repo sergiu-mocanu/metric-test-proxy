@@ -28,6 +28,13 @@ test_pred_file_name = 'test_pred.json'
 precision_recall_file_name = 'precision_recall.json'
 avg_var_file_name = 'avg_mad.json'
 
+current_date = None
+
+
+def initialize_current_date():
+    global current_date
+    current_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
+
 
 def get_metric_suffix(metric: TextMetric):
     if metric is None:
@@ -127,7 +134,8 @@ def compute_logistic_regression(code_dataset: CodeDataset, nb_iterations: int):
     """Run logistic regression classification separately on each textual-similarity metric.
     Each iteration is executed from scratch in order to avoid model overfitting.
     """
-    logreg_iterations_folder = gp.get_classification_results_path(code_dataset, Classifier.LR, iterations=True)
+    logreg_iterations_folder = gp.get_classification_results_path(code_dataset, Classifier.LR, iterations=True,
+                                                                  folder_date=current_date)
 
     os.makedirs(logreg_iterations_folder, exist_ok=True)
 
@@ -150,7 +158,8 @@ def compute_decision_tree(code_dataset: CodeDataset, nb_iterations: int):
     Each iteration is executed from scratch in order to avoid model overfitting.
     """
     print('Computing Decision Tree with all textual metrics')
-    dt_iterations_folder = gp.get_classification_results_path(code_dataset, Classifier.DT, iterations=True)
+    dt_iterations_folder = gp.get_classification_results_path(code_dataset, Classifier.DT, iterations=True,
+                                                              folder_date=current_date)
 
     os.makedirs(dt_iterations_folder, exist_ok=True)
 
@@ -237,8 +246,12 @@ def avg_mad(classification_res: dict) -> dict:
 
 
 def measure_average_meandev(code_dataset: CodeDataset, classifier: Classifier):
-    """Measure the average and the mean absolute deviation of classification results per code dataset and classifier."""
-    iteration_results_folder = gp.get_classification_results_path(code_dataset, classifier, iterations=True)
+    """Measure the average and the mean absolute deviation of classification results per code dataset and classifier.
+
+    The results are written to JSON files to the output directory.
+    """
+    iteration_results_folder = gp.get_classification_results_path(code_dataset, classifier, iterations=True,
+                                                                  folder_date=current_date)
 
     for file_name in sorted(os.listdir(iteration_results_folder)):
         if file_name.endswith(precision_recall_file_name):
@@ -310,7 +323,7 @@ def display_classification_results(code_dataset: CodeDataset, classifier: Classi
     for metric in list_metrics:
         metric_title = metric_to_title(metric)
         classification_results_folder = gp.get_classification_results_path(code_dataset, classifier,
-                                                                           iterations=iterations)
+                                                                    iterations=iterations, folder_date=current_date)
 
         if iterations:
             target_file_suffix = f'{precision_recall_file_name}'
@@ -333,8 +346,8 @@ def display_classification_results(code_dataset: CodeDataset, classifier: Classi
         first_entry = True
 
         if classifier == Classifier.LR:
-            print(f'\nLogistic Regression classification results for \"{metric_title}\" metric (average and mean '
-                  f'absolute deviation):\n')
+            print(f'\nLogistic Regression classification results for {metric_title} scores (average and mean absolute '
+                  f'deviation):\n')
         else:
             print(f'\nDecision Tree classification results (average and mean absolute deviation):\n')
 
@@ -358,12 +371,14 @@ def generate_confusion_matrix(code_dataset: CodeDataset, classifier: Classifier,
 
     The image is saved to a PNG format in the output directory.
     """
-    classification_res_dir = gp.get_classification_results_path(code_dataset, classifier, iterations=True)
+    classification_res_dir = gp.get_classification_results_path(code_dataset, classifier, iterations=True,
+                                                                folder_date=current_date)
     metric_suffix = get_metric_suffix(metric)
     target_file_name = metric_suffix + test_pred_file_name
     target_file_path = os.path.join(classification_res_dir, target_file_name)
 
-    matrix_folder_path = gp.get_classification_results_path(code_dataset, classifier, confusion_matrix=True)
+    matrix_folder_path = gp.get_classification_results_path(code_dataset, classifier, confusion_matrix=True,
+                                                            folder_date=current_date)
     os.makedirs(matrix_folder_path, exist_ok=True)
 
     if metric is None:
@@ -425,11 +440,15 @@ def generate_confusion_matrix(code_dataset: CodeDataset, classifier: Classifier,
 
 
 def run_full_classification(code_dataset: CodeDataset, classifier: Classifier=None, nb_iterations: int=100,
-                            console_display: bool=True):
+                            console_display: bool=True, display_folder_path: bool=False, override_results: bool=True):
     if classifier is None:
         classifiers = [e for e in Classifier]
     else:
         classifiers = [classifier]
+
+    if not override_results:
+        # Date initialization will prompt the creation of a separate directory for the classification results
+        initialize_current_date()
 
     for current_classifier in classifiers:
         if current_classifier == Classifier.LR:
@@ -442,6 +461,10 @@ def run_full_classification(code_dataset: CodeDataset, classifier: Classifier=No
             compute_decision_tree(code_dataset, nb_iterations)
             measure_average_meandev(code_dataset, current_classifier)
             generate_confusion_matrix(code_dataset, current_classifier, nb_iterations)
+
+        if display_folder_path:
+            classification_results_path = gp.get_classification_results_path(code_dataset, current_classifier)
+            print(f'\n!!!!The classification results will be saved to {classification_results_path}!!!!')
 
         if console_display:
             display_classification_results(code_dataset, current_classifier)

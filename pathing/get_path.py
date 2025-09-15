@@ -35,11 +35,19 @@ def get_metric_score_path(code_dataset: CodeDataset):
 
 
 def get_classification_results_path(code_dataset: CodeDataset, classifier: Classifier, iterations=False,
-                                    confusion_matrix=False):
+                                    confusion_matrix=False, folder_date=None):
     dataset_name = str(code_dataset.value)
     classifier_name = str(classifier.value)
 
-    classifier_res_path = os.path.join(exp_results_path, dataset_name, classifier_name)
+    if folder_date is None:
+        classifier_res_path = os.path.join(exp_results_path, dataset_name, classifier_name)
+    else:
+        if classifier == Classifier.LR:
+            date_concat = f'{folder_date}-LR'
+        else:
+            date_concat = f'{folder_date}-DT'
+
+        classifier_res_path = os.path.join(exp_results_path, dataset_name, date_concat)
 
     if iterations:
         classifier_res_path = os.path.join(classifier_res_path, 'training_iterations')
