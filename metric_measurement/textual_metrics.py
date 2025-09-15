@@ -447,3 +447,15 @@ def merge_metrics_results(code_dataset: CodeDataset):
             merged_file_name = f'{metric_name}.csv'
             csv_path = os.path.join(metric_results_path, merged_file_name)
             merged_df.to_csv(csv_path, index=False)
+
+
+# WIP
+def random_script_metric_measurement(metric: list[TextMetric]=None):
+    if metric is None:
+        list_metrics = [e for e in TextMetric]
+
+    rand_script_path = gp.get_rand_ai_script_path()
+
+    humaneval_task = rand_script_path.split('/')[-2]
+    task_index = int(humaneval_task.split('_')[1])
+    humaneval_baseline_path = gp.get_humaneval_baseline_path()
