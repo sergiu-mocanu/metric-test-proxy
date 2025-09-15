@@ -220,8 +220,8 @@ def full_functionality_test(code_dataset: CodeDataset):
             exp_continuation_started = True
 
 
-def display_test_results(code_dataset: CodeDataset):
-    """Display the test results for AI-generated scripts."""
+def display_full_test_results(code_dataset: CodeDataset):
+    """Display the test results for all AI-generated scripts."""
     funct_test_path = gp.get_functionality_test_path(code_dataset)
 
     total_tests_counter = 0
@@ -246,3 +246,42 @@ def display_test_results(code_dataset: CodeDataset):
 
     rate_failed_tests = (100 / total_tests_counter) * failed_tests_counter
     print(f'Rate of failed tests: {rate_failed_tests:.2f}%')
+
+
+def display_single_test_result(test_result: dict):
+    """Display the results for a single test."""
+    if test_result['successful']:
+        print('Test successful.')
+
+    else:
+        print('Test failed.')
+        print(f'Error type: {test_result["error_type"]}')
+        if 'error_message' in test_result.keys():
+            print(f'Error message: {test_result["error_message"]}')
+
+
+def test_random_ai_script():
+    """Test a random AI-script and display the result.
+
+    Function created for demonstration purposes.
+    """
+    rand_script_path = gp.get_rand_ai_script_path()
+    with open(rand_script_path, 'r') as f:
+        script_content = f.read()
+
+    extracted_script = code_cleanup(script_content, remove_exit=True)
+
+    humaneval_task = rand_script_path.split('/')[-2]
+    humaneval_index = int(humaneval_task.split('_')[1])
+
+    humaneval_test = get_tests_by_index(humaneval_index)
+
+    merged_code = extracted_script + '\n\n' + humaneval_test
+
+    print(f'Testing random AI-script: {rand_script_path}')
+    print(f'```\n{extracted_script}\n```')
+    print('Against the according HumanEval test:')
+    print(f'```\n{humaneval_test}\n```')
+
+    test_result = execute_test(merged_code)
+    display_single_test_result(test_result)

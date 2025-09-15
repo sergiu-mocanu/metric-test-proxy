@@ -1,6 +1,9 @@
 import os
 from pathlib import Path
 
+from glob import glob
+from random import choice
+
 from metric_measurement.enum import CodeDataset
 from classifiers.enum import Classifier
 
@@ -60,3 +63,9 @@ def get_humaneval_baseline_path():
 def get_python_corpus_path():
     python_corpus_path = os.path.join(code_path, 'python_corpus', 'python_data.txt')
     return python_corpus_path
+
+
+def get_rand_ai_script_path():
+    ai_code_path = get_ai_code_path(CodeDataset.original)
+    random_script_path = choice(glob(f'{ai_code_path}/**/**/*.py'))
+    return random_script_path
