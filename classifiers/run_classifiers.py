@@ -10,6 +10,8 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from PIL import Image
+
 from sklearn import metrics
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
@@ -439,8 +441,22 @@ def generate_confusion_matrix(code_dataset: CodeDataset, classifier: Classifier,
     plt.close(fig)
 
 
+def display_confusion_matrix(code_dataset: CodeDataset, classifier: Classifier):
+    """Display the confusion matrices saved as a PNG file."""
+    confusion_matrix_path = gp.get_classification_results_path(code_dataset, classifier, confusion_matrix=True,
+                                                               folder_date=current_date)
+
+    for path, _, files in os.walk(confusion_matrix_path):
+        for file in files:
+            file_path = os.path.join(path, file)
+            image = Image.open(file_path)
+            image.show()
+
+
 def run_full_classification(code_dataset: CodeDataset, classifier: Classifier=None, nb_iterations: int=100,
-                            console_display: bool=True, display_folder_path: bool=False, override_results: bool=True):
+                            console_display: bool=False, display_folder_path: bool=False, display_cm: bool=False,
+                            override_results: bool=False):
+
     if classifier is None:
         classifiers = [e for e in Classifier]
     else:
@@ -468,3 +484,8 @@ def run_full_classification(code_dataset: CodeDataset, classifier: Classifier=No
 
         if console_display:
             display_classification_results(code_dataset, current_classifier)
+
+        if display_cm:
+            display_confusion_matrix(code_dataset, current_classifier)
+
+    print('/' * 80)
