@@ -45,16 +45,9 @@ def extract_tests_from_script(humaneval_script: str) -> str:
 
 def get_tests_by_index(task_index: int) -> str:
     """Extract humaneval tests by index."""
-    humaneval_baseline_path = gp.get_humaneval_baseline_path()
-    humaneval_scripts = sorted(os.listdir(humaneval_baseline_path))
-
-    humaneval_file_name = humaneval_scripts[task_index]
-    humaneval_file_path = os.path.join(humaneval_baseline_path, humaneval_file_name)
-
+    humaneval_file_path = gp.get_baseline_by_index(task_index)
     humaneval_content = open(humaneval_file_path, 'r').read()
-
     tests = extract_tests_from_script(humaneval_content)
-
     return tests
 
 
@@ -272,9 +265,9 @@ def test_random_ai_script():
     extracted_script = code_cleanup(script_content, remove_exit=True)
 
     humaneval_task = rand_script_path.split('/')[-2]
-    humaneval_index = int(humaneval_task.split('_')[1])
+    task_index = int(humaneval_task.split('_')[1])
 
-    humaneval_test = get_tests_by_index(humaneval_index)
+    humaneval_test = get_tests_by_index(task_index)
 
     merged_code = extracted_script + '\n\n' + humaneval_test
 

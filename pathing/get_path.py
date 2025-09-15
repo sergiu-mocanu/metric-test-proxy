@@ -60,6 +60,14 @@ def get_humaneval_baseline_path():
     return humaneval_baseline_path
 
 
+def get_baseline_by_index(task_index: int):
+    baseline_path = get_humaneval_baseline_path()
+    baseline_scripts = sorted(os.listdir(baseline_path))
+    target_script = baseline_scripts[task_index]
+    target_baseline_path = os.path.join(baseline_path, target_script)
+    return target_baseline_path
+
+
 def get_python_corpus_path():
     python_corpus_path = os.path.join(code_path, 'python_corpus', 'python_data.txt')
     return python_corpus_path
