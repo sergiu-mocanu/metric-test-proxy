@@ -261,18 +261,16 @@ def test_random_ai_script():
     rand_script_path = gp.get_rand_ai_script_path()
     with open(rand_script_path, 'r') as f:
         script_content = f.read()
-
     extracted_script = code_cleanup(script_content, remove_exit=True)
 
     humaneval_task = rand_script_path.split('/')[-2]
     task_index = int(humaneval_task.split('_')[1])
-
     humaneval_test = get_tests_by_index(task_index)
 
     merged_code = extracted_script + '\n\n' + humaneval_test
 
     print(f'Testing random AI-script: {rand_script_path}')
-    print(f'```\n{extracted_script}\n```')
+    print(f'```\n{extracted_script}\n```\n')
     print('Against the according HumanEval test:')
     print(f'```\n{humaneval_test}\n```')
 

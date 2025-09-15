@@ -17,7 +17,6 @@ with contextlib.redirect_stderr(stderr):
 
 from codebleu import calc_codebleu
 
-
 import re
 from collections import Counter
 from nltk.util import ngrams
@@ -150,7 +149,7 @@ def list_non_hidden_files(dir_path: str) -> list[str]:
     return [f for f in os.listdir(dir_path) if not f.startswith('.')]
 
 
-def calculate_metric(metric: TextMetric, baseline_script: str, generated_script: str, metric_calc=None,
+def calculate_metric(metric: TextMetric, baseline_script: str, ai_script: str, metric_calc=None,
                      shared_ngrams: dict[str, int]=None) -> dict | float:
     """
     Measure the textual-similarity metric score between an AI-generated script and the humaneval baseline.
@@ -158,7 +157,7 @@ def calculate_metric(metric: TextMetric, baseline_script: str, generated_script:
     Args:
         metric (TextMetric): textual-similarity metric
         baseline_script (str): humaneval baseline script
-        generated_script (str): AI-generated script
+        ai_script (str): AI-generated script
         metric_calc: preloaded textual metric module
         shared_ngrams (dict[str, int]): dictionary of most common ngrams used for CrystalBLEU metric measurement
 
@@ -167,7 +166,7 @@ def calculate_metric(metric: TextMetric, baseline_script: str, generated_script:
     """
     score = {}
 
-    if not generated_script:
+    if not ai_script:
         if metric != TextMetric.CB:
             return 0.0
         else:
@@ -182,7 +181,7 @@ def calculate_metric(metric: TextMetric, baseline_script: str, generated_script:
         signal.alarm(2)
         while not metric_complete:
             try:
-                score = calc_codebleu(predictions=[generated_script], references=[baseline_script], lang='python')
+                score = calc_codebleu(predictions=[ai_script], references=[baseline_script], lang='python')
                 signal.alarm(0)
                 metric_complete = True
             except TimeoutError:
@@ -191,17 +190,17 @@ def calculate_metric(metric: TextMetric, baseline_script: str, generated_script:
 
     else:
         if metric == TextMetric.RG:
-            results = metric_calc.compute(predictions=[generated_script], references=[baseline_script],
+            results = metric_calc.compute(predictions=[ai_script], references=[baseline_script],
                                           rouge_types=['rougeL'])
 
         elif metric == TextMetric.CR:
             tokenized_baseline = tokenize(baseline_script)
-            tokenized_generated_script = tokenize(generated_script)
-            results = corpus_bleu([[tokenized_baseline]], [tokenized_generated_script],
+            tokenized_ai_script = tokenize(ai_script)
+            results = corpus_bleu([[tokenized_baseline]], [tokenized_ai_script],
                                   ignoring=shared_ngrams)
 
         else:
-            results = metric_calc.compute(predictions=[generated_script], references=[baseline_script])
+            results = metric_calc.compute(predictions=[ai_script], references=[baseline_script])
 
         metric_name = metric.value
 
@@ -449,13 +448,50 @@ def merge_metrics_results(code_dataset: CodeDataset):
             merged_df.to_csv(csv_path, index=False)
 
 
-# WIP
-def random_script_metric_measurement(metric: list[TextMetric]=None):
+def random_ai_script_metrics(metric: TextMetric=None):
     if metric is None:
         list_metrics = [e for e in TextMetric]
+    else:
+        list_metrics = [metric]
 
     rand_script_path = gp.get_rand_ai_script_path()
+    with open(rand_script_path, 'r') as f:
+        rand_script_content = f.read()
+    rand_script = code_cleanup(rand_script_content, remove_assert=True)
 
     humaneval_task = rand_script_path.split('/')[-2]
     task_index = int(humaneval_task.split('_')[1])
-    humaneval_baseline_path = gp.get_humaneval_baseline_path()
+    baseline_path = gp.get_baseline_by_index(task_index)
+    with open(baseline_path, 'r') as f:
+        baseline_content = f.read()
+    baseline_script = code_cleanup(baseline_content, remove_assert=True)
+
+    print(f'Analyzing AI-script: {rand_script_path}')
+    print(f'```\n{rand_script}\n```\n')
+    print('Against the according HumanEval baseline script:')
+    print(f'```\n{baseline_script}\n```')
+    print('_' * 40)
+    
+    for current_metric in list_metrics:
+        if current_metric != TextMetric.CB and current_metric != TextMetric.CR:
+            metric_calc = ev.load(str(current_metric.value))
+            shared_ngrams = None
+
+        elif current_metric == TextMetric.CR:
+            python_corpus = get_python_corpus()
+            shared_ngrams = extract_shared_ngrams(python_corpus)
+            metric_calc = None
+
+        else:
+            metric_calc = None
+            shared_ngrams = None
+            
+        metric_result = calculate_metric(metric=current_metric, baseline_script=baseline_script, ai_script=rand_script,
+                                         metric_calc=metric_calc, shared_ngrams=shared_ngrams)
+        if current_metric == TextMetric.CB:
+            metric_result = metric_result['codebleu']
+
+        metric_title = metric_to_title(current_metric)
+
+        print(f'Similarity score {metric_title}: {metric_result:.3f}')
+        print('_' * 40)
