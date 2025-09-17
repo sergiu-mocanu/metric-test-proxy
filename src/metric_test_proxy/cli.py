@@ -1,10 +1,10 @@
 import typer
 
-from src.metric_test_proxy.ai_code_testing import functional_testing as ft
-from src.metric_test_proxy.metric_measurement.enum import CodeDataset, TextMetric
-from src.metric_test_proxy.metric_measurement import textual_metrics as tm
-from src.metric_test_proxy.classifiers.enum import Classifier
-from src.metric_test_proxy.classifiers.run_classifiers import run_full_classification
+from metric_test_proxy.ai_code_testing import functional_testing as ft
+from metric_test_proxy.metric_measurement.enum import CodeDataset, TextMetric
+from metric_test_proxy.metric_measurement import textual_metrics as tm
+from metric_test_proxy.classifiers.enum import Classifier
+from metric_test_proxy.classifiers.run_classifiers import run_full_classification
 
 
 dataset_help = ('Dataset to test. `original` contains duplicate scripts. `distinct` is similar to `original` but with no'
@@ -48,7 +48,7 @@ def metric_score_full_dataset():
 
 
 @app.command()
-def train_test_classifier(
+def run_classifier(
         dataset: CodeDataset = typer.Option(
             CodeDataset.original, help='Dataset to use. `ai_code` contains duplicate scripts. `ai_code_distinct` is '
                                        'similar but lacks any duplicates.'
