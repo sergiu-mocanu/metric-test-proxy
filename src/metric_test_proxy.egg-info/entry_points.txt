@@ -1,2 +1,0 @@
-[console_scripts]
-metric-test = metric_test_proxy.cli:app
