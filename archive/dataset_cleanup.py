@@ -1,9 +1,6 @@
 import json
 import os
 import pandas as pd
-from pathing import get_path as gp
-import time
-
 
 """
 ⚠️ DEPRECATED SCRIPT ⚠️

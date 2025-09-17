@@ -5,9 +5,9 @@ import time
 
 import pandas as pd
 
-from pathing import get_path as gp
-from ai_code_testing import functional_testing as ft
-from metric_measurement.enum import CodeDataset, TextMetric, metric_to_title
+from src.metric_test_proxy.pathing import get_path as gp
+from src.metric_test_proxy.ai_code_testing import functional_testing as ft
+from src.metric_test_proxy.metric_measurement.enum import CodeDataset, TextMetric, metric_to_title
 
 import io
 import contextlib
