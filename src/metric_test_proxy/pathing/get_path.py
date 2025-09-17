@@ -4,8 +4,8 @@ from pathlib import Path
 from glob import glob
 from random import choice
 
-from metric_measurement.enum import CodeDataset
-from classifiers.enum import Classifier
+from src.metric_test_proxy.metric_measurement.enum import CodeDataset
+from src.metric_test_proxy.classifiers.enum import Classifier
 
 def find_project_root(marker='requirements.txt'):
     path = Path().resolve()

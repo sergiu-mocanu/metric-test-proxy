@@ -4,9 +4,9 @@ import subprocess
 import sys
 import time
 
-from pathing import get_path as gp
-from metric_measurement.textual_metrics import code_cleanup
-from metric_measurement.enum import CodeDataset
+from src.metric_test_proxy.pathing import get_path as gp
+from src.metric_test_proxy.metric_measurement.textual_metrics import code_cleanup
+from src.metric_test_proxy.metric_measurement.enum import CodeDataset
 
 
 def custom_sort_key(s: str) -> tuple[int, str]:

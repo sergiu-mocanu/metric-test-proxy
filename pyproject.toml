@@ -1,8 +1,10 @@
 [project]
 name = "metric_score_validation"
-version = "0.1.1"
+version = "0.1.2"
 description = "Validate the similarity of obtained metric score on the same dataset. Validation required due to a long delay since the last execution of the experiment (i.e., make sure that the employed metric libraries did not change behavior)."
-authors = [{ name = "Sergiu Mocanu", email = "sergiu.mocanu@inria.fr" }]
+authors = [
+    { name = "Sergiu Mocanu", email = "sergiu.mocanu@inria.fr" }
+]
 dependencies = [
 	"pandas",
 	"evaluate",
