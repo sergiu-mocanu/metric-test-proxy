@@ -12,3 +12,4 @@ seaborn
 scikit-learn
 nltk==3.9.1
 notebook
+typer

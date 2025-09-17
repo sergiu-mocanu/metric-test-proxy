@@ -1,10 +1,12 @@
 import os
 import signal
 import json
+import time
 
 import pandas as pd
 
 from pathing import get_path as gp
+from ai_code_testing import functional_testing as ft
 from metric_measurement.enum import CodeDataset, TextMetric, metric_to_title
 
 import io
@@ -448,7 +450,7 @@ def merge_metrics_results(code_dataset: CodeDataset):
             merged_df.to_csv(csv_path, index=False)
 
 
-def random_ai_script_metrics(metric: TextMetric=None):
+def random_ai_script_metrics(metric: TextMetric=None, functional_test: bool=False):
     if metric is None:
         list_metrics = [e for e in TextMetric]
     else:
@@ -467,10 +469,12 @@ def random_ai_script_metrics(metric: TextMetric=None):
     baseline_script = code_cleanup(baseline_content, remove_assert=True)
 
     print(f'Analyzing AI-script: {rand_script_path}')
-    print(f'```\n{rand_script}\n```\n')
-    print('Against the according HumanEval baseline script:')
-    print(f'```\n{baseline_script}\n```')
+    print(f'\n```\n{rand_script}\n```\n')
+    time.sleep(3)
+    print(f'Against the according HumanEval baseline script: {humaneval_task}')
+    print(f'\n```\n{baseline_script}\n```')
     print('_' * 40)
+    time.sleep(3)
     
     for current_metric in list_metrics:
         if current_metric != TextMetric.CB and current_metric != TextMetric.CR:
@@ -495,3 +499,13 @@ def random_ai_script_metrics(metric: TextMetric=None):
 
         print(f'Similarity score {metric_title}: {metric_result:.3f}')
         print('_' * 40)
+
+    if functional_test:
+        humaneval_test = ft.get_tests_by_index(task_index)
+        merged_code = rand_script + '\n\n' + humaneval_test
+
+        print('Executing humaneval test:')
+        time.sleep(2)
+
+        test_result = ft.execute_test(merged_code)
+        ft.display_single_test_result(test_result)

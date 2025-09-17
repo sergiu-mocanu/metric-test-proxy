@@ -2,6 +2,7 @@ import os
 import json
 import subprocess
 import sys
+import time
 
 from pathing import get_path as gp
 from metric_measurement.textual_metrics import code_cleanup
@@ -242,7 +243,7 @@ def display_full_test_results(code_dataset: CodeDataset):
 
 
 def display_single_test_result(test_result: dict):
-    """Display the results for a single test."""
+    """Display the results for a single test based on the input dict."""
     if test_result['successful']:
         print('Test successful.')
 
@@ -270,9 +271,10 @@ def test_random_ai_script():
     merged_code = extracted_script + '\n\n' + humaneval_test
 
     print(f'Testing random AI-script: {rand_script_path}')
-    print(f'```\n{extracted_script}\n```\n')
-    print('Against the according HumanEval test:')
-    print(f'```\n{humaneval_test}\n```')
-
+    print(f'\n```\n{extracted_script}\n```\n')
+    time.sleep(3)
+    print(f'Against the according HumanEval test: {humaneval_task}')
+    print(f'\n```\n{humaneval_test}\n```')
+    time.sleep(3)
     test_result = execute_test(merged_code)
     display_single_test_result(test_result)

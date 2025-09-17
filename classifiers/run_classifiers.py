@@ -147,7 +147,7 @@ def compute_logistic_regression(code_dataset: CodeDataset, nb_iterations: int):
     test_pred = {}
 
     for metric in TextMetric:
-        print(f'Computing Logistic Regression for {metric_to_title(metric)}')
+        print(f'Computing Logistic Regression for {metric_to_title(metric)} ({nb_iterations} iterations)')
         x, y = prepare_x_y(code_dataset, [metric])
 
         train_test_classifier(logistic_regression, x, y, classification_results, test_pred, nb_iterations)
@@ -159,7 +159,7 @@ def compute_decision_tree(code_dataset: CodeDataset, nb_iterations: int):
     """Run decision tree classification on all textual-similarity metrics.
     Each iteration is executed from scratch in order to avoid model overfitting.
     """
-    print('Computing Decision Tree with all textual metrics')
+    print(f'Computing Decision Tree with all textual metrics ({nb_iterations} iterations)')
     dt_iterations_folder = gp.get_classification_results_path(code_dataset, Classifier.DT, iterations=True,
                                                               folder_date=current_date)
 
@@ -454,7 +454,7 @@ def display_confusion_matrix(code_dataset: CodeDataset, classifier: Classifier):
 
 
 def run_full_classification(code_dataset: CodeDataset, classifier: Classifier=None, nb_iterations: int=100,
-                            console_display: bool=False, display_folder_path: bool=False, display_cm: bool=False,
+                            console_display: bool=False, display_write_path: bool=False, display_cm: bool=False,
                             override_results: bool=False):
 
     if classifier is None:
@@ -478,8 +478,9 @@ def run_full_classification(code_dataset: CodeDataset, classifier: Classifier=No
             measure_average_meandev(code_dataset, current_classifier)
             generate_confusion_matrix(code_dataset, current_classifier, nb_iterations)
 
-        if display_folder_path:
-            classification_results_path = gp.get_classification_results_path(code_dataset, current_classifier)
+        if display_write_path:
+            classification_results_path = gp.get_classification_results_path(code_dataset, current_classifier,
+                                                                             folder_date=current_date)
             print(f'\n!!!!The classification results will be saved to {classification_results_path}!!!!')
 
         if console_display:
