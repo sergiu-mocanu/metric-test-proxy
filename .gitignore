@@ -1,4 +1,4 @@
 .idea
 playground/
 **/__pycache__/
-src/metric_test_proxy.egg-info/
+*.egg-info/
