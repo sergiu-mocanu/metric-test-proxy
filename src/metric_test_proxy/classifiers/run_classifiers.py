@@ -33,11 +33,15 @@ current_date = None
 
 
 def initialize_current_date():
+    """Initialize the current date and time. Doing so will prompt the creation of a separate directory for the
+    classification results, therefore avoiding overriding previous data.
+    """
     global current_date
     current_date = datetime.now().strftime("%Y-%m-%d_%H-%M")
 
 
 def get_metric_suffix(metric: TextMetric):
+    """Return the file-name suffix for classification results."""
     if metric is None:
         return ''
     else:
