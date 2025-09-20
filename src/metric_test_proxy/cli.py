@@ -7,14 +7,11 @@ from metric_test_proxy.classifiers.enum import Classifier
 from metric_test_proxy.classifiers.run_classifiers import run_full_classification
 
 
-dataset_help = ('Dataset to test. `original` contains duplicate scripts. `distinct` is similar to `original` but with no'
-                ' duplicates. Defaults to `original`.')
-
-
 app = typer.Typer(help='CLI for code similarity experiments.\n\n'
                        'This project studies whether textual similarity metrics (e.g., BLEU, CodeBLEU, ROUGE) can serve '
                        'as a pre-filtering mechanism for AI-generated code: using these metrics to discard low-quality '
                        'variants and focus testing resources on the most promising scripts.')
+
 
 @app.command()
 def test_random_script():

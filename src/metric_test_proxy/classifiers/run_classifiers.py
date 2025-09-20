@@ -457,7 +457,7 @@ def display_confusion_matrix(code_dataset: CodeDataset, classifier: Classifier):
 
 
 def run_full_classification(code_dataset: CodeDataset, classifier: Classifier=None, nb_iterations: int=100,
-                            console_display: bool=False, display_write_path: bool=False, display_cm: bool=False,
+                            display_results: bool=False, display_write_path: bool=False, display_cm: bool=False,
                             override_results: bool=False):
 
     if classifier is None:
@@ -481,15 +481,19 @@ def run_full_classification(code_dataset: CodeDataset, classifier: Classifier=No
             measure_average_meandev(code_dataset, current_classifier)
             generate_confusion_matrix(code_dataset, current_classifier, nb_iterations)
 
+        if display_results:
+            display_classification_results(code_dataset, current_classifier)
+
         if display_write_path:
             classification_results_path = gp.get_classification_results_path(code_dataset, current_classifier,
                                                                              folder_date=current_date)
             print(f'\n!!!!The classification results will be saved to {classification_results_path}!!!!')
 
-        if console_display:
-            display_classification_results(code_dataset, current_classifier)
-
         if display_cm:
             display_confusion_matrix(code_dataset, current_classifier)
 
-    print('/' * 80)
+        print('/' * 80) # TODO: re-execute full classification in order to check the correct console delimiters
+
+
+run_full_classification(CodeDataset.original, override_results=True)
+run_full_classification(CodeDataset.distinct, override_results=True)
