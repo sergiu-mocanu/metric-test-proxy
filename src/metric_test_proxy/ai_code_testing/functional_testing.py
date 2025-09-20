@@ -4,8 +4,8 @@ import subprocess
 import sys
 import time
 
+from metric_test_proxy.extraction import script
 from metric_test_proxy.pathing import get_path as gp
-from metric_test_proxy.metric_measurement.textual_metrics import code_cleanup
 from metric_test_proxy.metric_measurement.enum import CodeDataset
 
 
@@ -17,38 +17,11 @@ def custom_sort_key(s: str) -> tuple[int, str]:
     return len(s), s
 
 
-def extract_tests_from_script(humaneval_script: str) -> str:
-    """Extract humaneval tests from a given script."""
-    testing_funct_name = 'def check('
-
-    extracted_checker = humaneval_script.split(testing_funct_name, 1)[1]
-    test_funct = testing_funct_name + extracted_checker
-
-    list_lines = test_funct.split('\n')
-
-    del_index = []
-
-    # Index empty lines, comments and unnecessary assert statements
-    for index, line in enumerate(list_lines):
-        if (len(line) == 0
-                or line.isspace()
-                or line.strip().startswith('#')
-                or 'assert True' in line):
-            del_index.append(index)
-
-    # Remove unnecessary components
-    for index in reversed(del_index):
-        del list_lines[index]
-
-    test_funct = '\n'.join(list_lines)
-    return test_funct
-
-
 def get_tests_by_index(task_index: int) -> str:
     """Extract humaneval tests by index."""
     humaneval_file_path = gp.get_baseline_by_index(task_index)
     humaneval_content = open(humaneval_file_path, 'r').read()
-    tests = extract_tests_from_script(humaneval_content)
+    tests = script.extract_tests(humaneval_content)
     return tests
 
 
@@ -186,7 +159,7 @@ def full_functionality_test(code_dataset: CodeDataset):
                 script_name = list_generated_scripts[script_index]
                 script_path = os.path.join(generated_scripts_path, script_name)
                 script_content = open(script_path, 'r').read()
-                cleaned_script = code_cleanup(script_content, remove_exit=True)
+                cleaned_script = script.extract_script(script_content, remove_exit=True)
 
                 merged_code = cleaned_script + '\n\n' + humaneval_test
 
@@ -262,7 +235,7 @@ def test_random_ai_script():
     rand_script_path = gp.get_rand_ai_script_path()
     with open(rand_script_path, 'r') as f:
         script_content = f.read()
-    extracted_script = code_cleanup(script_content, remove_exit=True)
+    extracted_script = script.extract_script(script_content, remove_exit=True)
 
     humaneval_task = rand_script_path.split('/')[-2]
     task_index = int(humaneval_task.split('_')[1])
@@ -272,9 +245,9 @@ def test_random_ai_script():
 
     print(f'Testing random AI-script: {rand_script_path}')
     print(f'\n```\n{extracted_script}\n```\n')
-    time.sleep(3)
+    time.sleep(2)
     print(f'Against the according HumanEval test: {humaneval_task}')
     print(f'\n```\n{humaneval_test}\n```')
-    time.sleep(3)
+    time.sleep(2)
     test_result = execute_test(merged_code)
     display_single_test_result(test_result)

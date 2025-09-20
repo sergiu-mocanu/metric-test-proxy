@@ -5,6 +5,7 @@ import time
 
 import pandas as pd
 
+from metric_test_proxy.extraction.script import extract_script
 from metric_test_proxy.pathing import get_path as gp
 from metric_test_proxy.ai_code_testing import functional_testing as ft
 from metric_test_proxy.metric_measurement.enum import CodeDataset, TextMetric, metric_to_title
@@ -71,79 +72,6 @@ def custom_sort_key(s: str) -> tuple[int, str]:
     Used for ordering project's folders and files.
     """
     return len(s), s
-
-
-def code_cleanup(script: str, remove_assert: bool=False, remove_exit: bool=False) -> str:
-    """Remove unnecessary components of a script (e.g., comments, assert statements)."""
-    if 'METADATA' in script:
-        script = script.split('METADATA', 1)[0]
-    elif 'def check(candidate)' in script:
-        script = script.split('def check(candidate)', 1)[0]
-
-    script_lines = script.splitlines()
-
-    multi_line_comment = False
-    comment_index = []
-    assert_index = []
-    empty_line_index = []
-    exit_line_index = []
-
-    for index, line in enumerate(script_lines):
-
-        # Index all assert statements
-        if remove_assert and 'assert' in line:
-            line_elements = tokenize(line)
-            if line_elements[0] == 'assert':
-                assert_index.append(index)
-            continue
-
-        if remove_exit and 'exit(' in line:
-            exit_line_index.append(index)
-            continue
-
-        if not multi_line_comment:
-            if '#' in line:
-                # Index single-line comments
-                if line.strip()[0] == '#':
-                    comment_index.append(index)
-                # Remove in-line comment component
-                else:
-                    cleaned_up_line = line.split('#', 1)[0]
-                    script_lines[index] = cleaned_up_line
-                continue
-
-            # Index the first line of multi-line comments
-            if '"""' in line or "'''" in line:
-                comment_index.append(index)
-                if line.count('"""') == 1 or line.count("'''") == 1:
-                    multi_line_comment = True
-                continue
-
-        # Add indexes for multi-line comments
-        if multi_line_comment and ('"""' not in line and "'''" not in line):
-            comment_index.append(index)
-            continue
-
-        # Index the last line of multi-line comments
-        if multi_line_comment and ('"""' in line or "'''" in line):
-            multi_line_comment = False
-            comment_index.append(index)
-            continue
-
-        # Index blank lines
-        if len(line) == 0 or line.isspace():
-            empty_line_index.append(index)
-            continue
-
-    # Merge indexes for comments, empty lines, assert and exit statements
-    [comment_index.extend(indexes) for indexes in (empty_line_index, assert_index, exit_line_index)]
-
-    # Remove all the unnecessary script components
-    for index in sorted(comment_index, reverse=True):
-        del script_lines[index]
-
-    clean_script = '\n'.join(script_lines)
-    return clean_script
 
 
 def list_non_hidden_files(dir_path: str) -> list[str]:
@@ -337,7 +265,7 @@ def full_metric_measurement(code_dataset: CodeDataset):
             target_humaneval = humaneval_scripts[task_index]
             target_humaneval_path = os.path.join(humaneval_baseline_path, target_humaneval)
             humaneval_content = open(target_humaneval_path, 'r').read()
-            humaneval_script = code_cleanup(humaneval_content, remove_assert=True)
+            humaneval_script = extract_script(humaneval_content, remove_assert=True)
 
             num_models_and_temps = len(list_models_and_temps)
 
@@ -364,7 +292,7 @@ def full_metric_measurement(code_dataset: CodeDataset):
                     # Extract and clean the AI-generated script
                     target_script_path = os.path.join(target_model_and_temp_path, task_name, script_file)
                     script_content = open(target_script_path).read()
-                    cleaned_script = code_cleanup(script_content)
+                    cleaned_script = extract_script(script_content)
 
                     script_test_pass = funct_test_results[script_file]['successful']
 
@@ -459,22 +387,22 @@ def random_ai_script_metrics(metric: TextMetric=None, functional_test: bool=Fals
     rand_script_path = gp.get_rand_ai_script_path()
     with open(rand_script_path, 'r') as f:
         rand_script_content = f.read()
-    rand_script = code_cleanup(rand_script_content, remove_assert=True)
+    rand_script = extract_script(rand_script_content, remove_assert=True)
 
     humaneval_task = rand_script_path.split('/')[-2]
     task_index = int(humaneval_task.split('_')[1])
     baseline_path = gp.get_baseline_by_index(task_index)
     with open(baseline_path, 'r') as f:
         baseline_content = f.read()
-    baseline_script = code_cleanup(baseline_content, remove_assert=True)
+    baseline_script = extract_script(baseline_content, remove_assert=True)
 
     print(f'Analyzing AI-script: {rand_script_path}')
     print(f'\n```\n{rand_script}\n```\n')
-    time.sleep(3)
+    time.sleep(2)
     print(f'Against the according HumanEval baseline script: {humaneval_task}')
     print(f'\n```\n{baseline_script}\n```')
     print('_' * 40)
-    time.sleep(3)
+    time.sleep(2)
     
     for current_metric in list_metrics:
         if current_metric != TextMetric.CB and current_metric != TextMetric.CR:
