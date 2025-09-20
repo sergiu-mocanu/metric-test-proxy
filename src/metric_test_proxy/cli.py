@@ -62,7 +62,7 @@ def run_classifier(
 ):
     """Train and test classification models on metrics score and functional test results of AI-scripts."""
     run_full_classification(code_dataset=dataset, classifier=classifier, nb_iterations=nb_iterations,
-                            console_display=display_results, display_write_path=True, display_cm=confusion_matrix)
+                            display_results=display_results, display_write_path=True, display_cm=confusion_matrix)
 
 
 

@@ -216,7 +216,10 @@ def display_full_test_results(code_dataset: CodeDataset):
 
 
 def display_single_test_result(test_result: dict):
-    """Display the results for a single test based on the input dict."""
+    """Display the results for a single test based on the input dict.
+
+    Function created for demonstration purposes only.
+    """
     if test_result['successful']:
         print('Test successful.')
 

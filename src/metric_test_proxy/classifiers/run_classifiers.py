@@ -493,7 +493,3 @@ def run_full_classification(code_dataset: CodeDataset, classifier: Classifier=No
             display_confusion_matrix(code_dataset, current_classifier)
 
         print('/' * 80) # TODO: re-execute full classification in order to check the correct console delimiters
-
-
-run_full_classification(CodeDataset.original, override_results=True)
-run_full_classification(CodeDataset.distinct, override_results=True)
