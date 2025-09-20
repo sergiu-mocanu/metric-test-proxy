@@ -89,7 +89,7 @@ def extract_script(script: str, remove_assert: bool=False, remove_exit: bool=Fal
 
 
 def extract_tests(humaneval_script: str) -> str:
-    """Extract test suite from HumanEval ground truth implementation"""
+    """Extract test suite from the ground truth implementation"""
     testing_funct_name = 'def check('
 
     extracted_checker = humaneval_script.split(testing_funct_name, 1)[1]

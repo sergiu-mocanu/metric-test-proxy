@@ -379,6 +379,14 @@ def merge_metrics_results(code_dataset: CodeDataset):
 
 
 def random_ai_script_metrics(metric: TextMetric=None, functional_test: bool=False):
+    """Measure the similarity score between a random AI-script and the ground truth implementation
+
+    Function created for demonstration purposes only.
+
+    Args:
+        metric (TextMetric, optional): target textual metric. Defaults to all.
+        functional_test (bool, optional): execute the according functional test and display results. Defaults to False.
+    """
     if metric is None:
         list_metrics = [e for e in TextMetric]
     else:

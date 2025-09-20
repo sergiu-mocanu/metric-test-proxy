@@ -230,7 +230,7 @@ def display_single_test_result(test_result: dict):
 def test_random_ai_script():
     """Test a random AI-script and display the result.
 
-    Function created for demonstration purposes.
+    Function created for demonstration purposes only.
     """
     rand_script_path = gp.get_rand_ai_script_path()
     with open(rand_script_path, 'r') as f:
