@@ -2,57 +2,38 @@ import os
 import json
 import subprocess
 import sys
+import time
 
-from pathing import get_path as gp
-from metric_measurement.textual_metrics import code_cleanup, CodeDataset
+from metric_test_proxy.extraction import script
+from metric_test_proxy.pathing import get_path as gp
+from metric_test_proxy.metric_measurement.enum import CodeDataset
 
 
-def custom_sort_key(s):
-    # A sorting key used to sort strings in a length-lexicographic order (length and alphabetical order)
+def custom_sort_key(s: str) -> tuple[int, str]:
+    """Return a sort key for strings using length-lexicographic order.
+
+    Used for ordering project's folders and files.
+    """
     return len(s), s
 
 
-def extract_checker(script):
-    # Function that extracts the test component of HumanEval implementations
-
-    # Extracting the 'checker' part of the HumanEval implementation
-    extracted_checker = script.split('def check(', 1)[1]
-    res = 'def check(' + extracted_checker
-
-    list_lines = res.split('\n')
-
-    del_index = []
-
-    # Indexing empty lines, comments and useless asserts
-    for index, line in enumerate(list_lines):
-        if (len(line) == 0
-                or line.isspace()
-                or '#' in line
-                or 'assert True' in line):
-            del_index.append(index)
-
-    for index in reversed(del_index):
-        del list_lines[index]
-
-    res = '\n'.join(list_lines)
-    return res
-
-
-def get_humaneval_test(task):
-    humaneval_baseline_path = gp.get_humaneval_baseline_path()
-    humaneval_scripts = sorted(os.listdir(humaneval_baseline_path))
-
-    humaneval_file_name = humaneval_scripts[task]
-    humaneval_file_path = os.path.join(humaneval_baseline_path, humaneval_file_name)
-
+def get_tests_by_index(task_index: int) -> str:
+    """Extract humaneval tests by index."""
+    humaneval_file_path = gp.get_baseline_by_index(task_index)
     humaneval_content = open(humaneval_file_path, 'r').read()
-
-    checker = extract_checker(humaneval_content)
-
-    return checker
+    tests = script.extract_tests(humaneval_content)
+    return tests
 
 
-def execute_test(merged_code):
+def execute_test(merged_code: str) -> dict:
+    """Execute code merged with tests in an isolated subprocess.
+
+    Args:
+        merged_code (str): AI-generated code merged with the according humaneval tests.
+
+    Returns:
+        A dictionary containing the functional test result.
+    """
     test_result = {}
 
     try:
@@ -65,10 +46,12 @@ def execute_test(merged_code):
 
         test_result['successful'] = True
 
+    # Timeout error
     except subprocess.TimeoutExpired:
         test_result['successful'] = False
         test_result['error_type'] = 'TimeOut'
 
+    # Runtime error
     except subprocess.CalledProcessError as e:
         test_result['successful'] = False
 
@@ -86,18 +69,16 @@ def execute_test(merged_code):
         else:
             test_result['error_type'] = error_name_and_message
 
-        return test_result
+    return test_result
 
 
-def complete_functionality_test(dataset_name):
+def full_functionality_test(code_dataset: CodeDataset):
+    """Iterate over all AI-generated scripts, merge with humaneval tests and execute in an isolated subprocess.
+
+    The results are written to JSON files in the output directory.
     """
-    Function that takes the AI-generated implementations and tests their correct functionality against the tests from
-    the HumanEval implementation
-
-    The result is saved locally in json files
-    """
-    ai_code_path = gp.get_ai_code_path(dataset_name)
-    funct_test_path = gp.get_functionality_test_path(dataset_name)
+    ai_code_path = gp.get_ai_code_path(code_dataset)
+    funct_test_path = gp.get_functionality_test_path(code_dataset)
 
     exp_continuation_started = False
 
@@ -107,7 +88,7 @@ def complete_functionality_test(dataset_name):
     if os.path.exists(funct_test_path):
         test_file_exists = True
 
-        # Obtaining the starting point of exp-resumption
+        # Obtain the starting point of exp-resumption
         list_models = sorted(os.listdir(funct_test_path))
         last_tested_model = list_models[-1]
         last_model_path = os.path.join(funct_test_path, last_tested_model)
@@ -148,7 +129,7 @@ def complete_functionality_test(dataset_name):
         list_tasks = sorted(os.listdir(model_path), key=custom_sort_key)
 
         for task_index in range(task_starting_index, len(list_tasks)):
-            # Skipping Task_145 due to lack of AI-code that accomplishes the said task
+            # Skip Task_145 due to lack of AI-code that accomplishes the said task
             if task_index == 145:
                 continue
 
@@ -167,18 +148,18 @@ def complete_functionality_test(dataset_name):
             if not os.path.exists(test_folder_path):
                 os.makedirs(test_folder_path)
 
-            humaneval_test = get_humaneval_test(task_index)
+            humaneval_test = get_tests_by_index(task_index)
 
             generated_scripts_path = os.path.join(model_path, task_name)
 
             list_generated_scripts = sorted(os.listdir(generated_scripts_path), key=custom_sort_key)
 
             for script_index in range(script_starting_index, len(list_generated_scripts)): # noqa
-                # Cleaning and merging the LLM-generated script with the HumanEval functionality tests
+                # Clean and merge the AI-generated scripts with functionality test
                 script_name = list_generated_scripts[script_index]
                 script_path = os.path.join(generated_scripts_path, script_name)
                 script_content = open(script_path, 'r').read()
-                cleaned_script = code_cleanup(script_content, remove_exit=True)
+                cleaned_script = script.extract_script(script_content, remove_exit=True)
 
                 merged_code = cleaned_script + '\n\n' + humaneval_test
 
@@ -186,7 +167,7 @@ def complete_functionality_test(dataset_name):
 
                 dict_test[script_name] = test_result
 
-                # Writing the results in a json file every 50 iterations
+                # Write the results in a json file every 50 iterations
                 test_file_write_counter -= 1
                 if not test_file_write_counter:
                     test_file_write_counter = 50
@@ -206,9 +187,9 @@ def complete_functionality_test(dataset_name):
             exp_continuation_started = True
 
 
-def successful_test_counter(dataset_name):
-    # Function that measures the rate of successful tests of the AI-generated code
-    funct_test_path = gp.get_functionality_test_path(dataset_name)
+def display_full_test_results(code_dataset: CodeDataset):
+    """Display the test results for all AI-generated scripts."""
+    funct_test_path = gp.get_functionality_test_path(code_dataset)
 
     total_tests_counter = 0
     failed_tests_counter = 0
@@ -226,8 +207,50 @@ def successful_test_counter(dataset_name):
                 if not model_dict[key]['successful']:
                     failed_tests_counter += 1
 
-    print(f'Total number of tests:  {total_tests_counter}')
-    print(f'Number of failed tests: {failed_tests_counter}')
+    print(f'Total number of tests:  {total_tests_counter:,}')
+    print(f'Number of failed tests: {failed_tests_counter:,}')
+    print(f'Number of successful tests: {total_tests_counter - failed_tests_counter:,}')
 
     rate_failed_tests = (100 / total_tests_counter) * failed_tests_counter
-    print(f'Rate of failed tests: {rate_failed_tests}%')
+    print(f'Rate of failed tests: {rate_failed_tests:.2f}%')
+
+
+def display_single_test_result(test_result: dict):
+    """Display the results for a single test based on the input dict.
+
+    Function created for demonstration purposes only.
+    """
+    if test_result['successful']:
+        print('Test successful.')
+
+    else:
+        print('Test failed.')
+        print(f'Error type: {test_result["error_type"]}')
+        if 'error_message' in test_result.keys():
+            print(f'Error message: {test_result["error_message"]}')
+
+
+def test_random_ai_script():
+    """Test a random AI-script and display the result.
+
+    Function created for demonstration purposes only.
+    """
+    rand_script_path = gp.get_rand_ai_script_path()
+    with open(rand_script_path, 'r') as f:
+        script_content = f.read()
+    extracted_script = script.extract_script(script_content, remove_exit=True)
+
+    humaneval_task = rand_script_path.split('/')[-2]
+    task_index = int(humaneval_task.split('_')[1])
+    humaneval_test = get_tests_by_index(task_index)
+
+    merged_code = extracted_script + '\n\n' + humaneval_test
+
+    print(f'Testing random AI-script: {rand_script_path}')
+    print(f'\n```\n{extracted_script}\n```\n')
+    time.sleep(2)
+    print(f'Against the according HumanEval test: {humaneval_task}')
+    print(f'\n```\n{humaneval_test}\n```')
+    time.sleep(2)
+    test_result = execute_test(merged_code)
+    display_single_test_result(test_result)

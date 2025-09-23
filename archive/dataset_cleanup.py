@@ -1,8 +1,14 @@
 import json
 import os
 import pandas as pd
-from pathing import get_path as gp
-import time
+
+"""
+⚠️ DEPRECATED SCRIPT ⚠️
+This script is no longer maintained. It was used to generate the duplicate-free code dataset found in 
+metric_exp_data/code/ai_code_distinct as well as the experimental results from metric_exp_data/exp_results/ai_code_distinct.
+
+Kept for transparency and reproducibility only.
+"""
 
 
 def custom_sort_key(s):
