@@ -92,6 +92,26 @@ metric-test run-classifier --dataset ai_code --classifier logistic_regression
 ```
 ___
 
+## 📂 Project Structure
+
+```angular2html
+metric-test-proxy/
+├── src/metric_test_proxy/   # Main package with all modules  
+│   ├── cli.py               # Command-line interface entrypoint
+│   ├── pathing/             # Path utilities for dataset/results  
+│   ├── extraction/          # Functions and tests extraction
+│   ├── metric_measurement/  # Textual metrics measurement  
+│   ├── ai_code_testing/     # Functional testing of AI scripts  
+│   └── classifiers/         # ML classifiers for experiments  
+├── docs/                    # Reports, figures, and results
+├── archive/                 # Deprecated or legacy scripts
+├── pyproject.toml           # Build configuration  
+├── requirements.txt         # Alternative dependency listing
+└── README.md                # Project description and usage instructions
+```
+
+___
+
 ## 📊 Results & Observations
 
 ⚠️ __Important considerations about the dataset:__
