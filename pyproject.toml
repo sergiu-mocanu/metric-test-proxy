@@ -10,7 +10,7 @@ readme = 'README.md'
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [
-    { name = "Sergiu Mocanu", email = "sergiu.mocanu10@outlook.com" }
+    { name = "Sergiu Mocanu", email = "sergiu.mocanu.dev@outlook.com" }
 ]
 dependencies = [
 	"pandas",
@@ -19,14 +19,16 @@ dependencies = [
 	"rouge-score",
 	"sacrebleu",
 	"codebleu",
-	"tree-sitter-python>=0.21",
+	"tree-sitter-python==0.21",
     "crystalbleu",
     "numpy",
     "matplotlib",
     "seaborn",
     "scikit-learn",
     "nltk>=3.9.1",
-    "typer"
+    "typer",
+    "transformers",
+    "accelerate"
 ]
 
 [project.scripts]

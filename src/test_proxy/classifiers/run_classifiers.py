@@ -21,9 +21,9 @@ from sklearn.linear_model import LogisticRegression
 
 from pathlib import Path
 
-from metric_test_proxy.classifiers.enum import Classifier, classifier_to_title
-from metric_test_proxy.metric_measurement.enum import TextMetric, CodeDataset, metric_to_title
-from metric_test_proxy.pathing import get_path as gp
+from test_proxy.classifiers.classifiers_registry import Classifier, classifier_to_title
+from test_proxy.metric_measurement.metrics_registry import TextMetric, CodeDataset, metric_to_title
+from test_proxy.pathing import get_path as gp
 
 test_pred_file_name = 'test_pred.json'
 precision_recall_file_name = 'precision_recall.json'

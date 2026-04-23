@@ -5,17 +5,17 @@ import time
 
 import pandas as pd
 
-from metric_test_proxy.extraction.script import extract_script
-from metric_test_proxy.pathing import get_path as gp
-from metric_test_proxy.ai_code_testing import functional_testing as ft
-from metric_test_proxy.metric_measurement.enum import CodeDataset, TextMetric, metric_to_title
+from test_proxy.extraction.script_components import extract_code
+from test_proxy.pathing import get_path as gp
+from test_proxy.ai_code_testing import functional_testing as ft
+from test_proxy.metric_measurement.metrics_registry import CodeDataset, TextMetric, metric_to_title
 
 import io
 import contextlib
 
 stderr = io.StringIO()
 with contextlib.redirect_stderr(stderr):
-    # Supress warning about missing installation of a deeplearning framework
+    # supress warning about missing installation of a deeplearning framework
     import evaluate as ev
 
 from codebleu import calc_codebleu
@@ -265,7 +265,7 @@ def full_metric_measurement(code_dataset: CodeDataset):
             target_humaneval = humaneval_scripts[task_index]
             target_humaneval_path = os.path.join(humaneval_baseline_path, target_humaneval)
             humaneval_content = open(target_humaneval_path, 'r').read()
-            humaneval_script = extract_script(humaneval_content, remove_assert=True)
+            humaneval_script = extract_code(humaneval_content, remove_assert=True)
 
             num_models_and_temps = len(list_models_and_temps)
 
@@ -292,7 +292,7 @@ def full_metric_measurement(code_dataset: CodeDataset):
                     # Extract and clean the AI-generated script
                     target_script_path = os.path.join(target_model_and_temp_path, task_name, script_file)
                     script_content = open(target_script_path).read()
-                    cleaned_script = extract_script(script_content)
+                    cleaned_script = extract_code(script_content)
 
                     script_test_pass = funct_test_results[script_file]['successful']
 
@@ -342,6 +342,9 @@ def full_metric_measurement(code_dataset: CodeDataset):
             exp_continuation_started = True
 
     merge_metrics_results(code_dataset)
+
+
+full_metric_measurement(CodeDataset('ai_code'))
 
 
 def merge_metrics_results(code_dataset: CodeDataset):
@@ -395,14 +398,14 @@ def random_ai_script_metrics(metric: TextMetric=None, functional_test: bool=Fals
     rand_script_path = gp.get_rand_ai_script_path()
     with open(rand_script_path, 'r') as f:
         rand_script_content = f.read()
-    rand_script = extract_script(rand_script_content, remove_assert=True)
+    rand_script = extract_code(rand_script_content, remove_assert=True)
 
     humaneval_task = rand_script_path.split('/')[-2]
     task_index = int(humaneval_task.split('_')[1])
     baseline_path = gp.get_baseline_by_index(task_index)
     with open(baseline_path, 'r') as f:
         baseline_content = f.read()
-    baseline_script = extract_script(baseline_content, remove_assert=True)
+    baseline_script = extract_code(baseline_content, remove_assert=True)
 
     print(f'Analyzing AI-script: {rand_script_path}')
     print(f'\n```\n{rand_script}\n```\n')

@@ -1,10 +1,10 @@
 import typer
 
-from metric_test_proxy.ai_code_testing import functional_testing as ft
-from metric_test_proxy.metric_measurement.enum import CodeDataset, TextMetric
-from metric_test_proxy.metric_measurement import textual_metrics as tm
-from metric_test_proxy.classifiers.enum import Classifier
-from metric_test_proxy.classifiers.run_classifiers import run_full_classification
+from test_proxy.ai_code_testing import functional_testing as ft
+from test_proxy.metric_measurement.metrics_registry import CodeDataset, TextMetric
+from test_proxy.metric_measurement import textual_metrics as tm
+from test_proxy.classifiers.classifiers_registry import Classifier
+from test_proxy.classifiers.run_classifiers import run_full_classification
 
 
 app = typer.Typer(help='CLI for code similarity experiments.\n\n'

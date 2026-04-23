@@ -4,9 +4,9 @@ import subprocess
 import sys
 import time
 
-from metric_test_proxy.extraction import script
-from metric_test_proxy.pathing import get_path as gp
-from metric_test_proxy.metric_measurement.enum import CodeDataset
+from test_proxy.extraction import script_components
+from test_proxy.pathing import get_path as gp
+from test_proxy.metric_measurement.metrics_registry import CodeDataset
 
 
 def custom_sort_key(s: str) -> tuple[int, str]:
@@ -21,7 +21,7 @@ def get_tests_by_index(task_index: int) -> str:
     """Extract humaneval tests by index."""
     humaneval_file_path = gp.get_baseline_by_index(task_index)
     humaneval_content = open(humaneval_file_path, 'r').read()
-    tests = script.extract_tests(humaneval_content)
+    tests = script_components.extract_tests(humaneval_content)
     return tests
 
 
@@ -159,7 +159,7 @@ def full_functionality_test(code_dataset: CodeDataset):
                 script_name = list_generated_scripts[script_index]
                 script_path = os.path.join(generated_scripts_path, script_name)
                 script_content = open(script_path, 'r').read()
-                cleaned_script = script.extract_script(script_content, remove_exit=True)
+                cleaned_script = script_components.extract_code(script_content, remove_exit=True)
 
                 merged_code = cleaned_script + '\n\n' + humaneval_test
 
@@ -238,7 +238,7 @@ def test_random_ai_script():
     rand_script_path = gp.get_rand_ai_script_path()
     with open(rand_script_path, 'r') as f:
         script_content = f.read()
-    extracted_script = script.extract_script(script_content, remove_exit=True)
+    extracted_script = script_components.extract_code(script_content, remove_exit=True)
 
     humaneval_task = rand_script_path.split('/')[-2]
     task_index = int(humaneval_task.split('_')[1])

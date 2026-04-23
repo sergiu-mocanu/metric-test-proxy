@@ -1,12 +1,13 @@
 import re
-
+import ast
+import inspect
 
 def tokenize(raw_string: str) -> list[str]:
     """Tokenize input code into a list of tokens."""
     return re.findall(r"\w+|[^\w\s]", raw_string)
 
 
-def extract_script(script: str, remove_assert: bool=False, remove_exit: bool=False) -> str:
+def extract_code(script: str, remove_assert: bool=False, remove_exit: bool=False) -> str:
     """Extract the code from a raw string. Remove all comments in order to avoid unnecessary textual-similarity noise.
 
     Args:
@@ -113,3 +114,33 @@ def extract_tests(humaneval_script: str) -> str:
 
     test_funct = '\n'.join(list_lines)
     return test_funct
+
+
+def get_function_metadata(humaneval_script: str) -> tuple[str, str]:
+    """Extract function signature and docstring from the ground truth implementation."""
+    indent = ' ' * 4
+
+    tree = ast.parse(humaneval_script)
+
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef):
+            func_name = node.name
+
+            # reconstruct function object from source
+            namespace = {}
+            exec(humaneval_script, namespace)
+            func = namespace[func_name]
+
+            signature = str(inspect.signature(func))
+            docstring = inspect.getdoc(func)
+
+            docstring = f'"""\n{docstring}\n"""'
+            indent_docstring = []
+            for line in docstring.splitlines():
+                indent_docstring.append(indent + line)
+
+            indent_docstring = '\n'.join(indent_docstring)
+
+            return f'def {func_name}{signature}:', indent_docstring
+
+    raise ValueError('No function found')
